@@ -1,0 +1,65 @@
+<% include('../partials/flash') %>
+<div class="card">
+  <div class="card-header d-flex justify-content-between"><strong>Trash</strong>
+    <form method="post" action="/admin/trash/empty" onsubmit="return confirm('Xoá sạch thùng rác?');">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="btn btn-danger btn-sm">Xoá sạch</button>
+    </form>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Pages</h5>
+        <ul>
+        <% pages.forEach(i => { %>
+          <li>#<%= i.id %> — <%= i.deleted_at %>
+            <form method="post" class="d-inline" action="/admin/trash/restore/pages/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
+            <form method="post" class="d-inline" action="/admin/trash/destroy/pages/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
+          </li>
+        <% }) %>
+        </ul>
+
+        <h5>Posts</h5>
+        <ul>
+        <% posts.forEach(i => { %>
+          <li>#<%= i.id %> — <%= i.deleted_at %>
+            <form method="post" class="d-inline" action="/admin/trash/restore/posts/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
+            <form method="post" class="d-inline" action="/admin/trash/destroy/posts/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
+          </li>
+        <% }) %>
+        </ul>
+      </div>
+      <div class="col-md-6">
+        <h5>Categories</h5>
+        <ul>
+        <% categories.forEach(i => { %>
+          <li>#<%= i.id %> — <%= i.deleted_at %>
+            <form method="post" class="d-inline" action="/admin/trash/restore/categories/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
+            <form method="post" class="d-inline" action="/admin/trash/destroy/categories/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
+          </li>
+        <% }) %>
+        </ul>
+
+        <h5>Tags</h5>
+        <ul>
+        <% tags.forEach(i => { %>
+          <li>#<%= i.id %> — <%= i.deleted_at %>
+            <form method="post" class="d-inline" action="/admin/trash/restore/tags/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
+            <form method="post" class="d-inline" action="/admin/trash/destroy/tags/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
+          </li>
+        <% }) %>
+        </ul>
+
+        <h5>Media</h5>
+        <ul>
+        <% media.forEach(i => { %>
+          <li>#<%= i.id %> — <%= i.deleted_at %>
+            <form method="post" class="d-inline" action="/admin/trash/restore/media/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
+            <form method="post" class="d-inline" action="/admin/trash/destroy/media/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
+          </li>
+        <% }) %>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

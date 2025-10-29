@@ -1,0 +1,72 @@
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Danh mục</strong></div>
+      <div class="card-body" id="categories-box">
+        <% if (typeof categoriesTree !== 'undefined') { %>
+          <ul class="list-unstyled">
+            <% function renderCat(nodes) { %>
+              <% nodes.forEach(function(n){ %>
+                <li>
+                  <label>
+                    <input type="checkbox" name="category_ids" value="<%= n.id %>" <%= (selectedCategoryIds||[]).includes(n.id) ? 'checked' : '' %>>
+                    <%= n.title %>
+                  </label>
+                  <label class="ml-2 small">
+                    <input type="radio" name="primary_category_id" value="<%= n.id %>" <%= primaryCategoryId===n.id ? 'checked' : '' %>> Primary
+                  </label>
+                  <% if (n.children && n.children.length) { %>
+                    <ul class="ml-3">
+                      <%- (function(){ renderCat(n.children); return '' })() %>
+                    </ul>
+                  <% } %>
+                </li>
+              <% }) %>
+            <% } %>
+            <%- (function(){ renderCat(categoriesTree); return '' })() %>
+          </ul>
+        <% } else { %>
+          <em class="text-muted">Chưa có danh mục.</em>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Thẻ (Tags)</strong></div>
+      <div class="card-body">
+        <input type="text" class="form-control" id="tags-input" placeholder="Nhập tag, Enter để thêm">
+        <div id="tags-chips" class="mt-2"></div>
+        <input type="hidden" name="tags_csv" id="tags-csv">
+        <small class="text-muted">Gợi ý khi gõ; Enter để thêm thẻ. Thẻ mới sẽ được tạo tự động.</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){ 
+  var input = document.getElementById('tags-input');
+  var chips = document.getElementById('tags-chips');
+  var hidden = document.getElementById('tags-csv');
+  function syncHidden(){ 
+    var vals = Array.from(chips.querySelectorAll('.chip')).map(x=>x.getAttribute('data-v'));
+    hidden.value = vals.join(',');
+  }
+  function addChip(v){
+    v = (v||'').trim(); if(!v) return;
+    if (Array.from(chips.querySelectorAll('.chip')).some(x=>x.getAttribute('data-v').toLowerCase()===v.toLowerCase())) return;
+    var d = document.createElement('span'); d.className='badge badge-primary mr-1 chip'; d.setAttribute('data-v', v); d.textContent = v;
+    var rm = document.createElement('a'); rm.href='#'; rm.innerHTML='&times;'; rm.className='text-white ml-1'; rm.onclick=function(e){ e.preventDefault(); d.remove(); syncHidden(); };
+    d.appendChild(rm); chips.appendChild(d); syncHidden();
+  }
+  input && (input.onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); addChip(input.value); input.value=''; }});
+  <% if (typeof selectedTags !== 'undefined') { %>
+    <% (selectedTags||[]).forEach(function(t){ %>
+      addChip("<%= t %>");
+    <% }) %>
+  <% } %>
+})();
+</script>

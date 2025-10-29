@@ -1,0 +1,27 @@
+<% include('../partials/flash') %>
+<form method="post">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="card">
+    <div class="card-body">
+      <div class="form-group"><label>Tiêu đề</label><input class="form-control" name="title" value="<%= item?item.title:'' %>" required></div>
+      <div class="form-group"><label>Slug</label><input class="form-control" name="slug" value="<%= item?item.slug:'' %>"><small>Bỏ trống để tự sinh</small></div>
+      <div class="form-group"><label>Nội dung (HTML)</label><textarea class="form-control" rows="10" name="content_html"><%= item?item.content_html:'' %></textarea></div>
+      <div class="form-row">
+        <div class="col"><label>Status</label>
+          <select class="form-control" name="status">
+            <option value="draft" <%= item && item.status==='draft' ? 'selected':'' %>>draft</option>
+            <option value="pending" <%= item && item.status==='pending' ? 'selected':'' %>>pending</option>
+            <option value="scheduled" <%= item && item.status==='scheduled' ? 'selected':'' %>>scheduled</option>
+            <option value="published" <%= item && item.status==='published' ? 'selected':'' %>>published</option>
+          </select>
+        </div>
+        <div class="col"><label>Display Date</label><input type="datetime-local" class="form-control" name="display_date" value="<%= item && item.display_date ? item.display_date.substring(0,16) : '' %>"></div>
+        <div class="col"><label>Scheduled At</label><input type="datetime-local" class="form-control" name="scheduled_at" value="<%= item && item.scheduled_at ? item.scheduled_at.substring(0,16) : '' %>"></div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button class="btn btn-primary">Lưu</button>
+      <a class="btn btn-secondary" href="/admin/posts">Huỷ</a>
+    </div>
+  </div>
+</form>

@@ -1,0 +1,31 @@
+<div class="card">
+  <div class="card-body">
+    <form method="get" action="/admin/search">
+      <div class="input-group">
+        <input class="form-control" name="q" value="<%= q %>" placeholder="Nội dung cần tìm...">
+        <div class="input-group-append"><button class="btn btn-primary">Tìm</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Pages</strong></div>
+      <ul class="list-group list-group-flush">
+        <% pages.forEach(p => { %><li class="list-group-item">#<%= p.id %> — <%= p.title %></li><% }) %>
+        <% if (!pages.length) { %><li class="list-group-item text-muted">Không có kết quả</li><% } %>
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Posts</strong></div>
+      <ul class="list-group list-group-flush">
+        <% posts.forEach(p => { %><li class="list-group-item">#<%= p.id %> — <%= p.title %></li><% }) %>
+        <% if (!posts.length) { %><li class="list-group-item text-muted">Không có kết quả</li><% } %>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,32 @@
+<% include('../partials/flash') %>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title">Media Library</h3>
+    <form class="form-inline" method="post" action="/admin/media/upload" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="file" name="file" class="form-control mr-2" required>
+      <button class="btn btn-primary btn-sm">Upload</button>
+    </form>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <% rows.forEach(m => { %>
+      <div class="col-md-3 mb-3">
+        <div class="card">
+          <% if (m.mime_type.startsWith('image/')) { %>
+            <img src="<%= m.url %>" class="card-img-top" alt="<%= m.filename %>">
+          <% } %>
+          <div class="card-body p-2">
+            <div class="small"><strong><%= m.original_filename %></strong></div>
+            <div class="text-muted"><%= m.mime_type %> — <%= m.size_bytes %> bytes</div>
+            <form method="post" action="/admin/media/<%= m.id %>/delete" onsubmit="return confirm('Xoá media này?');">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="btn btn-danger btn-xs mt-2">Xoá</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+</div>

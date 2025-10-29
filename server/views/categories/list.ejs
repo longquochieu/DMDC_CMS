@@ -1,0 +1,11 @@
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title">Cây Categories (kéo-thả để sắp xếp / đổi cha)</h3>
+    <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Thêm Category</a>
+  </div>
+  <div class="card-body" data-tree="categories" data-lang="<%= lang %>">
+    <%- include('../partials/tree-cats', { nodes: tree }) %>
+    <p class="text-muted mt-3">Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.</p>
+  </div>
+</div>

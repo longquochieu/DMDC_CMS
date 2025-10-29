@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập — DMDC CMS</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+</head>
+<body class="hold-transition login-page">
+<div class="login-box">
+  <div class="login-logo"><b>DMDC</b> CMS</div>
+  <div class="card">
+    <div class="card-body login-card-body">
+      <p class="login-box-msg">Đăng nhập để tiếp tục</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" name="identifier" placeholder="Username hoặc Email" required>
+          <div class="input-group-append"><div class="input-group-text"><span class="fas fa-user"></span></div></div>
+        </div>
+        <div class="input-group mb-3">
+          <input type="password" class="form-control" name="password" placeholder="Mật khẩu" required>
+          <div class="input-group-append"><div class="input-group-text"><span class="fas fa-lock"></span></div></div>
+        </div>
+        <div class="row">
+          <div class="col-8">
+            <div class="icheck-primary">
+              <input type="checkbox" id="remember" name="remember" value="1">
+              <label for="remember">Ghi nhớ đăng nhập</label>
+            </div>
+          </div>
+          <div class="col-4"><button type="submit" class="btn btn-primary btn-block">Đăng nhập</button></div>
+        </div>
+      </form>
+      <p class="mb-1 mt-3"><a href="#" onclick="alert('Tính năng quên mật khẩu: tạo token để Admin gửi link thủ công (chưa SMTP).');return false;">Quên mật khẩu?</a></p>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+</body>
+</html>

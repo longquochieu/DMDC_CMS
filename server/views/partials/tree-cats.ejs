@@ -1,0 +1,13 @@
+
+<ul class="tree-level list-unstyled pl-3">
+  <% (nodes||[]).forEach(function(n){ %>
+    <li class="mb-1" data-id="<%= n.id %>">
+      <span class="drag-handle mr-2" title="Kéo để sắp xếp" style="cursor:grab;">☰</span>
+      <a href="/admin/categories/<%= n.id %>/edit"><strong><%= n.title %></strong></a>
+      <small class="text-monospace text-muted ml-2">/<%= n.slug %> — <span data-full-path><%= n.full_path %></span></small>
+      <% if (n.children && n.children.length) { %>
+        <%- include('tree-cats', { nodes: n.children }) %>
+      <% } %>
+    </li>
+  <% }); %>
+</ul>

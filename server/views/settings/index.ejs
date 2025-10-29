@@ -1,0 +1,44 @@
+<% include('../partials/flash') %>
+<form method="post">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="card">
+    <div class="card-header"><strong>General</strong></div>
+    <div class="card-body">
+      <div class="form-group"><label>Site Title</label><input class="form-control" name="site_title" value="<%= s.site_title || '' %>"></div>
+      <div class="form-group"><label>Admin Email</label><input class="form-control" name="admin_email" value="<%= s.admin_email || '' %>"></div>
+      <div class="form-row">
+        <div class="col">
+          <label>Timezone</label>
+          <input class="form-control" name="timezone" value="<%= s.timezone || 'Asia/Ho_Chi_Minh' %>">
+        </div>
+        <div class="col">
+          <label>Date Format</label>
+          <input class="form-control" name="date_format" value="<%= s.date_format || 'd/m/Y' %>">
+        </div>
+        <div class="col">
+          <label>Time Format</label>
+          <input class="form-control" name="time_format" value="<%= s.time_format || 'H:i' %>">
+        </div>
+      </div>
+      <div class="form-row mt-3">
+        <div class="col">
+          <label>i18n URL mode</label>
+          <select class="form-control" name="i18n_url_mode">
+            <option value="path" <%= (s.i18n_url_mode||'path')==='path'?'selected':'' %>>Path (/en/...)</option>
+            <option value="subdomain" <%= s.i18n_url_mode==='subdomain'?'selected':'' %>>Subdomain (en.site.com)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Homepage</label>
+          <select class="form-control" name="homepage_page_id">
+            <option value="">(Chưa chọn)</option>
+            <% pages.forEach(p => { %>
+              <option value="<%= p.id %>" <%= s.homepage_page_id==p.id ? 'selected':'' %>><%= p.title %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer"><button class="btn btn-primary">Lưu cài đặt</button></div>
+  </div>
+</form>

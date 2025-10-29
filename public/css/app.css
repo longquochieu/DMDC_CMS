@@ -1,0 +1,7 @@
+
+.tree-level .drag-handle{ opacity: .6; }
+.tree-level .drag-handle:hover{ opacity: 1; }
+.ql-container{ background:#fff; }
+.ql-toolbar.ql-snow{ border-top-left-radius:.25rem; border-top-right-radius:.25rem; }
+.ql-container.ql-snow{ border-bottom-left-radius:.25rem; border-bottom-right-radius:.25rem; min-height:300px; }
+.badge.chip{ font-size:95%; padding:.4rem .6rem; }
