@@ -1,7 +1,6 @@
 // server/app.js
 import express from "express";
 import session from "express-session";
-import { csrfProtection, attachCsrfToken } from "./middlewares/csrf.js";
 import SQLiteStoreFactory from "connect-sqlite3";
 import dotenv from "dotenv";
 import helmet from "helmet";
@@ -13,9 +12,11 @@ import cron from "node-cron";
 // middlewares
 import { loadUser } from "./middlewares/auth.js";
 import { touchActivity } from "./middlewares/lastActivity.js";
+import { csrfProtection, attachCsrfToken } from "./middlewares/csrf.js";
 import { enforceSessionVersion } from "./middlewares/sessionVersion.js";
+import { flash } from "./middlewares/flash.js";
 
-// routers (KHÔNG dùng adminRoutes cũ nữa)
+// routers
 import adminDashboard from "./routes/admin_dashboard.js";
 import authRoutes from "./routes/auth.js";
 import pagesRoutes from "./routes/pages.js";
@@ -39,13 +40,13 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ TẠI ĐÂY MỚI KHAI BÁO app
 const app = express();
+
+// simple access log
 app.use((req, res, next) => {
   const t = Date.now();
-  console.log('> ', req.method, req.url);
   res.on('finish', () => {
-    console.log('< ', req.method, req.url, res.statusCode, (Date.now() - t) + 'ms');
+    console.log((req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''), '>', req.method, req.url, '<', res.statusCode, (Date.now() - t) + 'ms');
   });
   next();
 });
@@ -60,18 +61,8 @@ app.set("layout", "layout");
 
 // Security & parsers
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// Tăng limit cho form & JSON
-const BODY_LIMIT_MB = parseInt(process.env.BODY_LIMIT_MB || '10', 10); // tùy bạn: 5/10/20
-const BODY_LIMIT = `${BODY_LIMIT_MB}mb`;
-app.use(express.urlencoded({
-  extended: true,
-  limit: BODY_LIMIT,
-  parameterLimit: 10000   // đề phòng form nhiều field (tags, categories…)
-}));
-app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 // Static
 app.use("/css", express.static(path.join(__dirname, "../public/css")));
@@ -90,32 +81,33 @@ app.use(
   })
 );
 
-// User, activity, CSRF
+// flash phải sau session
+app.use(flash());
+
+// User, session version, activity, CSRF
 app.use(loadUser);
 app.use(enforceSessionVersion);
 app.use(touchActivity);
 app.use(csrfProtection);
 app.use(attachCsrfToken);
 
-app.use((req, res, next) => {
-  res.locals.user = req.user;
-  next();
-});
+// user vào locals
+app.use((req, res, next) => { res.locals.user = req.user; next(); });
 
 // Health
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// Routes (đúng thứ tự, tránh trùng /admin)
+// Routes
 app.use("/", authRoutes);
-app.use("/admin", adminDashboard);            // Dashboard /admin
+app.use("/admin", adminDashboard);
 app.use("/admin/pages", pagesRoutes);
 app.use("/admin/posts", postsRoutes);
 app.use("/admin/categories", categoriesRoutes);
 app.use("/admin/tags", tagsRoutes);
 app.use("/admin/media", mediaRoutes);
 app.use("/admin/users", usersRoutes);
-app.use("/admin/settings", settingsRoutes);   // routes/settings.js (có form settings)
-app.use("/admin/settings", settingsExtra);    // routes/settings_extra.js (branding/seo POST)
+app.use("/admin/settings", settingsRoutes);
+app.use("/admin/settings", settingsExtra);
 app.use("/admin/logs", logsRoutes);
 app.use("/admin/trash", trashRoutes);
 app.use("/admin/search", searchRoutes);

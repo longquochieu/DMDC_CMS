@@ -1,4 +1,6 @@
 ﻿<section class="content">
+  <%- include('../partials/flash') %>
+
   <div class="card">
     <div class="card-body">
       <h3 class="mb-3">Media</h3>
@@ -13,26 +15,7 @@
       </form>
 
       <hr>
-      <div id="media-list" class="row"></div>
+      <div id="media-list"></div>
     </div>
   </div>
 </section>
-
-<script>
-(async function(){
-  const listEl = document.getElementById('media-list');
-  async function refresh(){
-    const r = await fetch('/admin/media/list', { headers:{'Accept':'application/json'} });
-    const j = await r.json();
-    listEl.innerHTML = (j.items||[]).map(it => `
-      <div class="col-md-3 mb-3">
-        <div class="card p-2">
-          <img src="${it.url}" class="img-fluid mb-2" alt="">
-          <div class="small text-muted">${it.original_filename}</div>
-        </div>
-      </div>
-    `).join('');
-  }
-  await refresh();
-})();
-</script>

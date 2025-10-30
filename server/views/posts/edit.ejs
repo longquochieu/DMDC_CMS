@@ -1,27 +1,27 @@
 <%- include('../partials/flash') %>
-<form method="post" action="<%= item ? `/admin/posts/${item.id}/edit` : '/admin/posts/new' %>">
-	<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form method="post" action="<%=item ? `/admin/posts/${item.id}/edit` : '/admin/posts/new'%>">
+	<input type="hidden" name="_csrf" value="<%=csrfToken%>">
   <div class="row">
     <div class="col-lg-9">
       <div class="card mb-3">
         <div class="card-body">
           <div class="form-group">
             <label>Tiêu đề</label>
-            <input type="text" class="form-control" name="title" data-field="title" value="<%= item?item.title||'':'' %>" required>
+            <input type="text" class="form-control" name="title" data-field="title" value="<%=item?item.title||'':''%>" required>
           </div>
           <div class="form-group">
             <label>Slug</label>
-            <input type="text" class="form-control" name="slug" data-field="slug" value="<%= item?item.slug||'':'' %>" required>
+            <input type="text" class="form-control" name="slug" data-field="slug" value="<%=item?item.slug||'':''%>" required>
             <small class="text-muted">Slug tự sinh theo tiêu đề, có thể chỉnh.</small>
           </div>
           <div class="form-group">
             <label>Mô tả ngắn (Excerpt)</label>
-            <textarea class="form-control" name="excerpt" rows="2"><%= item?item.excerpt||'' : '' %></textarea>
+            <textarea class="form-control" name="excerpt" rows="2"><%=item?item.excerpt||'' : ''%></textarea>
           </div>
           <div class="form-group">
             <label>Nội dung</label>
             <div data-quill-editor></div>
-            <textarea name="content_html" class="d-none"><%= item?item.content_html||'' : '' %></textarea>
+            <textarea name="content_html" class="d-none"><%=item?item.content_html||'' : ''%></textarea>
           </div>
           <button class="btn btn-primary">Xuất bản</button>
         </div>
@@ -35,17 +35,17 @@
             <label>Status</label>
             <select class="form-control" name="status">
               <% ['draft','pending','published'].forEach(s=>{ %>
-                <option value="<%= s %>" <%= item&&item.status===s?'selected':'' %>><%= s %></option>
+                <option value="<%=s%>" <%=item&&item.status===s?'selected':''%>><%=s%></option>
               <% }) %>
             </select>
           </div>
           <div class="form-group">
             <label>Display date</label>
-            <input type="datetime-local" class="form-control" name="display_date" value="<%= item && item.display_date ? item.display_date_local : '' %>">
+            <input type="datetime-local" class="form-control" name="display_date" value="<%=item && item.display_date ? item.display_date_local : ''%>">
           </div>
           <div class="form-group">
             <label>Scheduled At</label>
-            <input type="datetime-local" class="form-control" name="scheduled_at" value="<%= item && item.scheduled_at ? item.scheduled_at_local : '' %>">
+            <input type="datetime-local" class="form-control" name="scheduled_at" value="<%=item && item.scheduled_at ? item.scheduled_at_local : ''%>">
           </div>
         </div>
       </div>
@@ -54,14 +54,14 @@
         <div class="card-body">
           <% function renderCat(nodes){ %>
             <% (nodes||[]).forEach(function(n){ %>
-              <div class="ml-<%= n.level||0 %>">
+              <div class="ml-<%=n.level||0%>">
                 <label class="d-block">
-                  <input type="checkbox" name="category_ids" value="<%= n.id %>" <%= (selectedCategoryIds||[]).includes(n.id)?'checked':'' %>>
-                  <%= n.title %>
-                  <span class="text-muted">/<%= n.slug %></span>
+                  <input type="checkbox" name="category_ids" value="<%=n.id%>" <%=(selectedCategoryIds||[]).includes(n.id)?'checked':''%>>
+                  <%=n.title%>
+                  <span class="text-muted">/<%=n.slug%></span>
                 </label>
                 <label class="small ml-3">
-                  <input type="radio" name="primary_category_id" value="<%= n.id %>" <%= primaryCategoryId===n.id?'checked':'' %>> Primary
+                  <input type="radio" name="primary_category_id" value="<%=n.id%>" <%=primaryCategoryId===n.id?'checked':''%>> Primary
                 </label>
               </div>
               <% if (n.children && n.children.length){ %>
@@ -82,83 +82,88 @@
         </div>
       </div>
       <div class="card mb-3">
-        <div class="card-header"><strong>Ảnh đại diện</strong></div>
-        <div class="card-body">
-          <% if (item && item.featured_url){ %>
-            <img src="<%= item.featured_url %>" style="width:100%;height:auto;max-height:160px;object-fit:cover" class="mb-2">
-          <% } %>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-pick-featured>Chọn từ Media</button>
-          <input type="hidden" name="featured_media_id" value="<%= item?item.featured_media_id||'':'' %>">
-        </div>
-      </div>
-      <div class="card mb-3">
-        <div class="card-header"><strong>Gallery ảnh</strong></div>
-        <div class="card-body">
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-pick-gallery>Chọn nhiều ảnh</button>
-          <div id="gallery-preview" class="mt-2 d-flex flex-wrap"></div>
-          <% (galleryMedia||[]).forEach(function(m){ %>
-            <input type="hidden" name="gallery_media_ids" value="<%= m.id %>">
-          <% }) %>
-        </div>
-      </div>
+		  <div class="card-header">Gallery</div>
+		  <div class="card-body">
+			<div id="gallery-preview" class="d-flex flex-wrap gap-2 mb-2">
+			  <% (galleryMedia||[]).forEach(g => { %>
+				<div class="position-relative">
+				  <img src="<%=g.url%>" style="height:70px" class="border">
+				</div>
+			  <% }) %>
+			</div>
+			<div id="gallery-hidden">
+			  <% (galleryMedia||[]).forEach(g => { %>
+				<input type="hidden" name="gallery_ids[]" value="<%=g.id%>">
+			  <% }) %>
+			</div>
+			<button class="btn btn-outline-secondary btn-sm" type="button" id="btn-add-gallery">Thêm ảnh</button>
+			<button class="btn btn-outline-danger btn-sm" type="button" id="btn-clear-gallery">Xoá hết</button>
+		  </div>
+		</div>
     </div>
   </div>
 </form>
 <script src="/js/slug.js"></script>
 <script>
-(function(){
-  var input = document.getElementById('tags-input');
-  var chips = document.getElementById('tags-chips');
-  var hidden = document.getElementById('tags-csv');
-  function syncHidden(){
-    var vals = Array.from(chips.querySelectorAll('.chip')).map(x=>x.getAttribute('data-v'));
-    hidden.value = vals.join(',');
-  }
-  function addChip(v){
-    v = (v||'').trim(); if(!v) return;
-    var cur = Array.from(chips.querySelectorAll('.chip')).map(x=>x.getAttribute('data-v').toLowerCase());
-    if (cur.includes(v.toLowerCase())) return;
-    if (cur.length >= 10) { alert('Tối đa 10 tag'); return; }
-    var d = document.createElement('span'); d.className='badge badge-primary mr-1 chip'; d.setAttribute('data-v', v); d.textContent = v;
-    var rm = document.createElement('a'); rm.href='#'; rm.innerHTML='&times;'; rm.className='text-white ml-1'; rm.onclick=function(e){ e.preventDefault(); d.remove(); syncHidden(); };
-    d.appendChild(rm); chips.appendChild(d); syncHidden();
-  }
-  input && (input.onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); addChip(input.value); input.value=''; }});
-  <% if (typeof selectedTags !== 'undefined') { %>
-    <% (selectedTags||[]).forEach(function(t){ %> addChip("<%= t %>"); <% }) %>
-  <% } %>
-  function pickOne(cb){
-    fetch('/admin/media/list', { headers: { 'Accept':'application/json' } })
-      .then(r=>r.json()).then(json=>{
-        var s = prompt('Chọn ảnh đại diện (nhập chỉ số):\n'+json.items.map((m,i)=> i+': '+m.original_filename).join('\n'));
-        if (s===null) return;
-        var i = parseInt(s,10); if (isNaN(i)||i<0||i>=json.items.length) return alert('Lựa chọn không hợp lệ');
-        cb(json.items[i]);
-      }).catch(e=>alert('Không tải được media: '+e.message));
-  }
-  document.querySelector('[data-pick-featured]')?.addEventListener('click', function(){
-    pickOne(function(m){
-      document.querySelector('input[name=featured_media_id]').value = m.id;
-      var prev = document.createElement('img'); prev.src = m.url; prev.style='width:100%;max-height:160px;object-fit:cover';
-      var box = document.querySelector('[data-pick-featured]').closest('.card-body');
-      var old = box.querySelector('img'); if (old) old.remove();
-      box.insertBefore(prev, box.firstChild);
-    });
-  });
-  document.querySelector('[data-pick-gallery]')?.addEventListener('click', function(){
-    fetch('/admin/media/list', { headers: { 'Accept':'application/json' } })
-      .then(r=>r.json()).then(json=>{
-        var s = prompt('Nhập danh sách chỉ số, ví dụ: 0,2,3'); if (s===null) return;
-        var idx = s.split(',').map(x=>parseInt(x.trim(),10)).filter(x=>!isNaN(x));
-        var chosen = idx.map(i=>json.items[i]).filter(Boolean);
-        var wrap = document.getElementById('gallery-preview');
-        wrap.innerHTML='';
-        document.querySelectorAll('input[name=gallery_media_ids]').forEach(x=>x.remove());
-        chosen.forEach(m=>{
-          var img = document.createElement('img'); img.src=m.url; img.style='width:60px;height:60px;object-fit:cover;margin:2px'; wrap.appendChild(img);
-          var h = document.createElement('input'); h.type='hidden'; h.name='gallery_media_ids'; h.value=m.id; document.forms[0].appendChild(h);
+  (function(){
+    function pickOne(cb){
+      // Mở danh sách, chọn ảnh hoặc upload mới (dùng JSON list + input file như Media)
+      window.csrfFetch('/admin/media/list', { headers: { 'accept':'application/json' }})
+        .then(r=>r.json())
+        .then(json=>{
+          const items = json.items||[];
+          const msg = 'Nhập số thứ tự ảnh (0..n) hoặc trống để Tải lên mới.\n' +
+            items.map((m,i)=> `${i}: ${m.original_filename} (${m.mime_type})`).join('\n');
+          const choice = window.prompt(msg);
+          if (choice === null) return;
+
+          if (choice === '') {
+            const ip = document.createElement('input'); ip.type = 'file'; ip.accept = 'image/*';
+            ip.onchange = function(){
+              const f = ip.files[0]; if(!f) return;
+              const fd = new FormData(); fd.append('file', f);
+              window.csrfFetch('/admin/media/upload', { method:'POST', body: fd })
+                .then(r=>r.json()).then(info=>cb(info))
+                .catch(e=>alert('Upload lỗi: '+e.message));
+            };
+            ip.click();
+          } else {
+            const i = parseInt(choice, 10);
+            if (Number.isNaN(i) || i < 0 || i >= items.length) return alert('Lựa chọn không hợp lệ');
+            cb(items[i]);
+          }
         });
-      }).catch(e=>alert('Không tải được media: '+e.message));
-  });
-})();
+    }
+
+    // Featured
+    const btnF = document.getElementById('btn-pick-featured');
+    const clrF = document.getElementById('btn-clear-featured');
+    if (btnF) btnF.addEventListener('click', function(){
+      pickOne(function(file){
+        document.getElementById('featured_media_id').value = file.id;
+        document.getElementById('featured-preview').innerHTML =
+          `<img src="${file.url}" class="img-fluid mb-2">`;
+      });
+    });
+    if (clrF) clrF.addEventListener('click', function(){
+      document.getElementById('featured_media_id').value = '';
+      document.getElementById('featured-preview').innerHTML = '';
+    });
+
+    // Gallery (multi-select theo lần bấm — lặp pickOne nhiều lần)
+    const btnG = document.getElementById('btn-add-gallery');
+    const clrG = document.getElementById('btn-clear-gallery');
+    if (btnG) btnG.addEventListener('click', function(){
+      pickOne(function(file){
+        const prev = document.getElementById('gallery-preview');
+        const hid  = document.getElementById('gallery-hidden');
+        prev.insertAdjacentHTML('beforeend', `<img src="${file.url}" style="height:70px" class="border me-1 mb-1">`);
+        hid.insertAdjacentHTML('beforeend', `<input type="hidden" name="gallery_ids[]" value="${file.id}">`);
+      });
+    });
+    if (clrG) clrG.addEventListener('click', function(){
+      document.getElementById('gallery-preview').innerHTML = '';
+      document.getElementById('gallery-hidden').innerHTML = '';
+    });
+  })();
 </script>

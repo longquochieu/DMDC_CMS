@@ -1,13 +1,10 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title">Cây Pages (kéo-thả để sắp xếp / đổi cha)</h3>
+    <h3 class="card-title">Pages</h3>
     <a href="/admin/pages/new" class="btn btn-primary btn-sm">+ Thêm Page</a>
   </div>
-
   <div class="card-body" data-tree="pages" data-lang="<%= lang %>">
-    <% /* Render cây: mỗi node sẽ có nút Edit/Xoá ở partial */ %>
     <%- include('../partials/tree', { nodes: tree, csrfToken }) %>
-
     <p class="text-muted mt-3">
       Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.
     </p>

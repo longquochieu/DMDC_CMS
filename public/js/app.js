@@ -1,16 +1,15 @@
-﻿// public/js/app.js — minimal bootstrap for admin UI
-(function () {
-  'use strict';
-  // expose csrf token getter
-  window.getCsrfToken = function () {
-    var m = document.querySelector('meta[name="csrf-token"]');
+﻿// public/js/app.js
+(function(){
+  // Lấy token cho tất cả AJAX
+  window.__csrf = function() {
+    const m = document.querySelector('meta[name="csrf-token"]');
     return m ? m.content : '';
   };
-  // generic fetch JSON helper honoring CSRF
-  window.fetchJSON = function (url, opts) {
-    opts = opts || {};
-    opts.headers = opts.headers || {};
-    if (!opts.headers['CSRF-Token']) opts.headers['CSRF-Token'] = window.getCsrfToken();
-    return fetch(url, opts).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+
+  // Tiện ích fetch có CSRF sẵn
+  window.csrfFetch = function(url, opts={}) {
+    const headers = new Headers(opts.headers || {});
+    if (!headers.has('x-csrf-token')) headers.set('x-csrf-token', window.__csrf());
+    return fetch(url, { ...opts, headers });
   };
 })();

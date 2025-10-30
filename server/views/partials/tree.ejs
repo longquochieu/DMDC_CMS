@@ -1,39 +1,21 @@
-<ul class="list-unstyled pl-3">
-  <% (nodes || []).forEach(function(node){ %>
-    <li class="mb-2"
-        data-id="<%= node.id %>"
-        data-parent-id="<%= node.parent_id || '' %>">
+<ul class="list-unstyled">
+  <% (nodes||[]).forEach(function(node){ %>
+    <li class="mb-2" data-id="<%= node.id %>">
       <div class="d-flex align-items-center">
-        <span class="mr-2 handle" title="Kéo-thả">
-          <i class="fas fa-grip-vertical"></i>
-        </span>
+        <i class="fas fa-grip-vertical me-2 text-muted" title="Kéo để sắp xếp"></i>
+        <a class="me-2" href="/admin/pages/<%= node.id %>/edit"><%= node.title || ('#'+node.id) %></a>
+        <span class="badge bg-light text-dark me-2"><%= node.slug %></span>
 
-        <strong class="mr-2">
-          <a href="/admin/pages/<%= node.id %>/edit"><%= node.title || ('#'+node.id) %></a>
-        </strong>
-
-        <% if (node.full_path) { %>
-          <code class="text-muted"><%= node.full_path %></code>
-        <% } %>
-
-        <div class="ml-auto">
-          <a href="/admin/pages/<%= node.id %>/edit" class="btn btn-xs btn-secondary mr-1">
-            <i class="fas fa-edit"></i> Edit
-          </a>
-
-          <form action="/admin/pages/<%= node.id %>/trash" method="post"
-                class="d-inline"
-                onsubmit="return confirm('Chuyển page vào Thùng rác?')">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button class="btn btn-xs btn-danger">
-              <i class="fas fa-trash"></i> Trash
-            </button>
-          </form>
-        </div>
+        <form action="/admin/pages/<%= node.id %>/trash" method="post" class="ms-auto d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-danger" onclick="return confirm('Chuyển page vào Thùng rác?')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </form>
       </div>
 
       <% if (node.children && node.children.length) { %>
-        <%- include('../partials/tree', { nodes: node.children, csrfToken }) %>
+        <%- include('tree', { nodes: node.children, csrfToken }) %>
       <% } %>
     </li>
   <% }) %>

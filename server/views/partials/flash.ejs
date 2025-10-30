@@ -1,6 +1,16 @@
-<% if (typeof message !== 'undefined' && message) { %>
-  <div class="alert alert-success"><%= message %></div>
-<% } %>
-<% if (typeof error !== 'undefined' && error) { %>
-  <div class="alert alert-danger"><%= error %></div>
+<% if (flash && (flash.success || flash.error || flash.info || flash.warning)) { %>
+  <div class="mb-3">
+    <% (flash.success||[]).forEach(m => { %>
+      <div class="alert alert-success"><%= m %></div>
+    <% }) %>
+    <% (flash.error||[]).forEach(m => { %>
+      <div class="alert alert-danger"><%= m %></div>
+    <% }) %>
+    <% (flash.info||[]).forEach(m => { %>
+      <div class="alert alert-info"><%= m %></div>
+    <% }) %>
+    <% (flash.warning||[]).forEach(m => { %>
+      <div class="alert alert-warning"><%= m %></div>
+    <% }) %>
+  </div>
 <% } %>

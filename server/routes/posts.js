@@ -121,7 +121,7 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
     res.redirect('/admin/posts');
   }catch(e){
     const categoriesTree = await getCategoriesTree(lang);
-    res.render('posts/edit', { pageTitle:'New Post', item:null, error:e.message, categoriesTree, selectedCategoryIds: [], primaryCategoryId: null, selectedTags: [], galleryMedia: [] });
+    res.render('posts/edit', { pageTitle:'New Post', item:null, error:e.message, categoriesTree, selectedCategoryIds: [], primaryCategoryId: null, selectedTags: [], galleryMedia: [], gallery: [], lang });
   }
 });
 
@@ -144,7 +144,14 @@ router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), a
   const tags = await db.all('SELECT tt.name FROM posts_tags pt JOIN tags_translations tt ON tt.tag_id=pt.tag_id AND tt.language=? WHERE pt.post_id=?', lang, id);
   const selectedTags = tags.map(x=>x.name);
   const galleryMedia = await db.all('SELECT m.id, m.url FROM media_usages mu JOIN media m ON m.id=mu.media_id WHERE mu.post_id=? AND mu.field="gallery" ORDER BY mu.position, m.id', id);
-  res.render('posts/edit', { pageTitle:'Edit Post', item, error:null, categoriesTree, selectedCategoryIds, primaryCategoryId, selectedTags, galleryMedia });
+    const gallery = await db.all(`
+	  SELECT m.id, m.url
+	  FROM media_usages mu
+	  JOIN media m ON m.id = mu.media_id
+	  WHERE mu.post_id = ? AND mu.field = 'gallery' AND mu.deleted_at IS NULL
+	  ORDER BY mu.position, m.id
+	`, id);
+	res.render('posts/edit', { pageTitle:'Edit Post', item, error:null, categoriesTree, selectedCategoryIds, primaryCategoryId, selectedTags, galleryMedia, featured, gallery: gallery || [], lang });
 });
 
 router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), async (req, res) => {
