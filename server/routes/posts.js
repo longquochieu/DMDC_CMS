@@ -143,7 +143,7 @@ router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), a
   const primaryCategoryId = prim ? prim.primary_category_id : null;
   const tags = await db.all('SELECT tt.name FROM posts_tags pt JOIN tags_translations tt ON tt.tag_id=pt.tag_id AND tt.language=? WHERE pt.post_id=?', lang, id);
   const selectedTags = tags.map(x=>x.name);
-  const galleryMedia = await db.all('SELECT m.id, m.url FROM media_usages mu JOIN media m ON m.id=mu.media_id WHERE mu.post_id=? AND mu.field="gallery" ORDER BY mu.position, mu.id', id);
+  const galleryMedia = await db.all('SELECT m.id, m.url FROM media_usages mu JOIN media m ON m.id=mu.media_id WHERE mu.post_id=? AND mu.field="gallery" ORDER BY mu.position, m.id', id);
   res.render('posts/edit', { pageTitle:'Edit Post', item, error:null, categoriesTree, selectedCategoryIds, primaryCategoryId, selectedTags, galleryMedia });
 });
 
@@ -207,7 +207,7 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
     const item = await db.get(`SELECT p.*, t.title, t.slug, t.excerpt, t.content_html,
       (SELECT url FROM media WHERE id=p.featured_media_id) AS featured_url
       FROM posts p LEFT JOIN posts_translations t ON t.post_id=p.id AND t.language=? WHERE p.id=?`, lang, id);
-    const galleryMedia = await db.all('SELECT m.id, m.url FROM media_usages mu JOIN media m ON m.id=mu.media_id WHERE mu.post_id=? AND mu.field="gallery" ORDER BY mu.position, mu.id', id);
+    const galleryMedia = await db.all('SELECT m.id, m.url FROM media_usages mu JOIN media m ON m.id=mu.media_id WHERE mu.post_id=? AND mu.field="gallery" ORDER BY mu.position, m.id', id);
     res.render('posts/edit', { pageTitle:'Edit Post', item, error:e.message, categoriesTree, selectedCategoryIds, primaryCategoryId, selectedTags, galleryMedia });
   }
 });

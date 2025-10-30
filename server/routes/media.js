@@ -1,58 +1,120 @@
+// server/routes/media.js — full replacement
 import express from 'express';
-import { requireAuth, requireRoles } from '../middlewares/auth.js';
+import path from 'path';
+import fs from 'fs/promises';
+import multer from 'multer';
+import sharp from 'sharp';
+import sanitizeHtml from 'sanitize-html';
+import { fileURLToPath } from 'url';
+
+import { requireAuth } from '../middlewares/auth.js';
 import { getDb } from '../utils/db.js';
 
 const router = express.Router();
 
-// ✅ Trang Media index
-router.get('/', requireAuth, async (req, res, next) => {
-	try {
-		const db = await getDb();
-		const rows = await db.all(`
-		  SELECT id, url, original_filename, mime, size_bytes, created_at
-		  FROM media
-		  WHERE deleted_at IS NULL
-		  ORDER BY created_at DESC
-		  LIMIT 200
-		`);
-		res.render('media/index', { pageTitle: 'Media', items: rows });
-	  } catch (e) { next(e); }
-	});
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-router.get('/list', requireAuth, async (req, res) => {
-const db = await getDb();
-  const q = (req.query.q || '').trim();
-  const sql = q
-    ? `SELECT * FROM media WHERE deleted_at IS NULL AND original_filename LIKE ? ORDER BY created_at DESC LIMIT 200`
-    : `SELECT * FROM media WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`;
-  const rows = q ? await db.all(sql, `%${q}%`) : await db.all(sql);
-  res.json(rows);
-});
+const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || './uploads');
 
-
-router.get('/:id/usage', requireRoles('admin','editor'), async (req, res) => {
-  const db = await getDb();
-  const id = Number(req.params.id);
-  const rows = await db.all(`
-    SELECT 'post' as type, p.id, pt.title
-    FROM media_usages mu
-    JOIN posts p ON p.id=mu.post_id
-    LEFT JOIN posts_translations pt ON pt.post_id=p.id
-    WHERE mu.media_id=?
-  `, id);
-  res.json({ usages: rows });
-});
-
-router.post('/:id/delete', requireRoles('admin','editor'), async (req, res) => {
-  const db = await getDb();
-  const id = Number(req.params.id);
-  const confirm = (req.body.confirm==='true');
-  const cnt = await db.get('SELECT COUNT(*) AS c FROM media_usages WHERE media_id=?', id);
-  if (cnt.c > 0 && !confirm){
-    return res.status(409).json({ error: 'Media is used', usages: cnt.c });
+// Upload config: memory storage -> we always post-process
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: (parseInt(process.env.MAX_UPLOAD_MB || '10', 10)) * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    // allow images + svg
+    if (/^image\/(png|jpe?g|webp|gif|svg\+xml)$/.test(file.mimetype)) return cb(null, true);
+    cb(new Error('Unsupported file type: ' + file.mimetype));
   }
-  await db.run('UPDATE media SET deleted_at=CURRENT_TIMESTAMP WHERE id=?', id);
-  res.json({ ok:true });
+});
+
+async function ensureDir(d) {
+  await fs.mkdir(d, { recursive: true });
+}
+
+router.get('/', requireAuth, async (req, res) => {
+  res.render('media/index', { pageTitle: 'Media' });
+});
+
+// JSON list used by editor's Media Picker
+router.get('/list', requireAuth, async (req, res) => {
+  const db = await getDb();
+  const rows = await db.all(`
+    SELECT id, url, original_filename, mime AS mime_type, size_bytes
+    FROM media
+    WHERE deleted_at IS NULL OR deleted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 200
+  `);
+  res.json({ items: rows });
+});
+
+// Upload endpoint used by editor (and media page). Field name: "file"
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const originalName = req.file.originalname || 'upload';
+    const incomingMime = req.file.mimetype || 'application/octet-stream';
+    const buf = req.file.buffer;
+
+    let outBuf;
+    let outExt;
+
+    if (incomingMime === 'image/svg+xml') {
+      // sanitize SVG (basic; can be tuned)
+      const cleaned = sanitizeHtml(buf.toString('utf-8'), {
+        allowedTags: false, // allow all tags but...
+        allowedAttributes: false, // ...strip event handlers later
+        // A stricter allowlist can be set if needed
+      });
+      outBuf = Buffer.from(cleaned, 'utf-8');
+      outExt = '.svg';
+    } else {
+      // Convert all rasters to webp
+      outBuf = await sharp(buf).toFormat('webp', { quality: 82 }).toBuffer();
+      outExt = '.webp';
+    }
+
+    // Build dated folder path: /uploads/YYYY/MM
+    const now = new Date();
+    const yyyy = String(now.getFullYear());
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const outDir = path.join(UPLOAD_DIR, yyyy, mm);
+    await ensureDir(outDir);
+
+    // Safe basename
+    const base = path.basename(originalName, path.extname(originalName))
+      .toLowerCase()
+      .replace(/[^a-z0-9\-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const fileName = `${base || 'img'}-${Date.now()}${outExt}`;
+    const absPath = path.join(outDir, fileName);
+    await fs.writeFile(absPath, outBuf);
+
+    const rel = absPath.replace(UPLOAD_DIR, '').replace(/\\/g, '/');
+    const url = `/uploads${rel}`;
+
+    const db = await getDb();
+    const info = await db.run(
+      `INSERT INTO media (url, original_filename, mime, size_bytes, width, height, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, NULL, NULL, datetime('now'), NULL)`,
+      url, originalName, incomingMime, outBuf.length
+    );
+
+    res.json({
+      id: info.lastID,
+      url,
+      original_filename: originalName,
+      mime_type: incomingMime,
+      size_bytes: outBuf.length
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;

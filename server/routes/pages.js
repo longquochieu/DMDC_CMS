@@ -8,6 +8,7 @@ import sanitizeHtml from 'sanitize-html';
 import { getPagesTree } from '../services/tree.js';
 import { rebuildPageSubtreeFullPaths } from '../services/rebuild.js';
 import { buildFullPathForPage } from '../services/hierarchy.js';
+import { logActivity } from '../services/activity.js';
 
 const router = express.Router();
 
@@ -137,6 +138,54 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
     await db.run('ROLLBACK');
     res.status(409).send(e.message);
   }
+});
+/**
+ * POST /admin/pages/:id/trash
+ * - Chặn xoá is_home
+ * - Chặn xoá nếu còn children chưa xoá
+ * - Soft delete: set deleted_at = now
+ */
+router.post('/:id/trash', requireRoles('admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const db = await getDb();
+
+  // Tồn tại + chưa xoá?
+  const row = await db.get('SELECT id, is_home FROM pages WHERE id=? AND deleted_at IS NULL', id);
+  if (!row) return res.redirect('/admin/pages?err=not_found');
+
+  // Chặn xoá trang chủ
+  if (row.is_home === 1) {
+    return res.redirect('/admin/pages?err=cannot_delete_home');
+  }
+
+  // Chặn khi còn children chưa xoá
+  const child = await db.get('SELECT 1 FROM pages WHERE parent_id=? AND deleted_at IS NULL LIMIT 1', id);
+  if (child) {
+    return res.redirect('/admin/pages?err=has_children');
+  }
+
+  await db.run('UPDATE pages SET deleted_at = datetime("now") WHERE id=?', id);
+  await logActivity(req.user.id, 'trash', 'page', id);
+
+  return res.redirect('/admin/pages?ok=trashed');
+});
+
+/**
+ * POST /admin/pages/:id/restore
+ * - Khôi phục từ trash: set deleted_at = NULL
+ * - Chỉ cho khôi phục khi Page đang ở Trash
+ */
+router.post('/:id/restore', requireRoles('admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const db = await getDb();
+
+  const row = await db.get('SELECT id FROM pages WHERE id=? AND  deleted_at IS NOT NULL', id);
+  if (!row) return res.redirect('/admin/trash?err=not_in_trash');
+
+  await db.run('UPDATE pages SET deleted_at = NULL WHERE id=?', id);
+  await logActivity(req.user.id, 'restore', 'page', id);
+
+  return res.redirect('/admin/trash?ok=restored');
 });
 
 export default router;

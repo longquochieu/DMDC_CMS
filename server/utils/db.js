@@ -22,7 +22,9 @@ function wrapDbErrorLogging(db) {
 }
 
 export async function getDb() {
-  const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-  if (!global.__loggedDbPath) { console.log('[DB] Using', DB_PATH); global.__loggedDbPath = true; }
+	const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+	if (!global.__loggedDbPath) { console.log('[DB] Using', DB_PATH); global.__loggedDbPath = true; }
+	await db.exec("PRAGMA journal_mode=WAL;");
+	await db.exec("PRAGMA busy_timeout=5000;");
   return wrapDbErrorLogging(db);
 }

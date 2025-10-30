@@ -1,7 +1,7 @@
 // server/app.js
 import express from "express";
 import session from "express-session";
-import csrf from 'csurf';
+import { csrfProtection, attachCsrfToken } from "./middlewares/csrf.js";
 import SQLiteStoreFactory from "connect-sqlite3";
 import dotenv from "dotenv";
 import helmet from "helmet";
@@ -13,7 +13,6 @@ import cron from "node-cron";
 // middlewares
 import { loadUser } from "./middlewares/auth.js";
 import { touchActivity } from "./middlewares/lastActivity.js";
-import { csrfProtection } from "./middlewares/csrf.js";
 import { enforceSessionVersion } from "./middlewares/sessionVersion.js";
 
 // routers (KHÔNG dùng adminRoutes cũ nữa)
@@ -63,6 +62,16 @@ app.set("layout", "layout");
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Tăng limit cho form & JSON
+const BODY_LIMIT_MB = parseInt(process.env.BODY_LIMIT_MB || '10', 10); // tùy bạn: 5/10/20
+const BODY_LIMIT = `${BODY_LIMIT_MB}mb`;
+app.use(express.urlencoded({
+  extended: true,
+  limit: BODY_LIMIT,
+  parameterLimit: 10000   // đề phòng form nhiều field (tags, categories…)
+}));
+app.use(express.json({ limit: BODY_LIMIT }));
 
 // Static
 app.use("/css", express.static(path.join(__dirname, "../public/css")));
