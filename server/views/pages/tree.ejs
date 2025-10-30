@@ -1,0 +1,41 @@
+<% /* server/views/pages/tree.ejs */ %>
+<%- include('../partials/flash') %>
+
+<!-- CSRF cho JS -->
+<meta name="csrf-token" content="<%= csrfToken %>">
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">Cây Pages (kéo–thả để sắp xếp / đổi cha)</h3>
+    <div class="btn-group">
+      <a href="/admin/pages" class="btn btn-outline-secondary btn-sm">↩ Quay về danh sách</a>
+      <a href="/admin/pages/new" class="btn btn-primary btn-sm">+ Thêm Page</a>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <p class="text-muted">Mẹo: kéo vào biểu tượng <span class="badge bg-light text-dark">⠿</span> để sắp xếp; kéo sang node khác để đổi cha.</p>
+
+    <div id="pages-tree-root" data-lang="<%= lang %>">
+      <%- include('../partials/tree', { nodes: tree }) %>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Nhẹ nhàng để nhìn rõ chỗ kéo */
+  .tree-list { list-style: none; padding-left: 0.75rem; }
+  .tree-node { margin: 0.15rem 0; }
+  .node-row {
+    display:flex; align-items:center; gap:.5rem;
+    padding:.35rem .5rem; border:1px dashed #e5e7eb; border-radius:.5rem; background:#fff;
+  }
+  .node-handle { cursor:grab; user-select:none; font-size:14px; }
+  .node-title { flex:1; }
+  .node-actions a { margin-left: .35rem; }
+  .children { list-style:none; margin-left:1.25rem; padding-left:.35rem; border-left:2px dotted #eee; }
+</style>
+
+<!-- SortableJS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="/js/pages-tree.js"></script>

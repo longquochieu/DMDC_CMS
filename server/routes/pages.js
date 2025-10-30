@@ -5,12 +5,14 @@ import { getDb } from '../utils/db.js';
 import { getSetting } from '../services/settings.js';
 import { toSlug } from '../utils/strings.js';
 import sanitizeHtml from 'sanitize-html';
-import { getPagesTree } from '../services/tree.js';
 import { rebuildPageSubtreeFullPaths } from '../services/rebuild.js';
 import { buildFullPathForPage } from '../services/hierarchy.js';
 import { logActivity } from '../services/activity.js';
+import { getPagesTree } from '../services/tree.js';
 
 const router = express.Router();
+
+const TEMPLATES = ['default','landing','contact']; // có thể đọc từ settings sau
 
 function cleanHtml(input){
   const cfg = {
@@ -40,34 +42,64 @@ function cleanHtml(input){
   return sanitizeHtml(input||'', cfg);
 }
 
-// LIST (tree)
+/** ===== LIST (bảng 8 cột) ===== */
 router.get('/', requireAuth, async (req, res) => {
+  const db = await getDb();
   const lang = await getSetting('default_language','vi');
-  const tree = await getPagesTree(lang);
-  res.render('pages/list', { pageTitle:'Pages', tree, lang });
+
+  const rows = await db.all(`
+    SELECT
+      p.id, p.parent_id, p.created_at, p.created_by, p.template,
+      t.title AS title, t.slug AS slug,
+      pt.title AS parent_title,
+      u.username AS creator_name
+    FROM pages p
+    LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
+    LEFT JOIN pages pp ON pp.id=p.parent_id
+    LEFT JOIN pages_translations pt ON pt.page_id=pp.id AND pt.language=?
+    LEFT JOIN users u ON u.id=p.created_by
+    WHERE p.deleted_at IS NULL
+    ORDER BY COALESCE(p.parent_id,0), p.order_index, p.id
+  `, lang, lang);
+
+  res.render('pages/list', { pageTitle: 'Pages', rows, lang });
 });
 
-// NEW
+/** ===== TREE (drag & drop) ===== */
+router.get('/tree', requireAuth, async (req, res) => {
+  const lang = await getSetting('default_language','vi');
+  const tree = await getPagesTree(lang);
+  res.render('pages/tree', { pageTitle: 'Cây Pages (Drag & Drop)', tree, lang });
+});
+
+/** ===== NEW (form) ===== */
 router.get('/new', requireRoles('admin','editor','author','contributor'), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting('default_language','vi');
-  const parents = await db.all(
-    'SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL ORDER BY t.title',
-    lang
-  );
-  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null });
+  const parents = await db.all(`
+    SELECT p.id, t.title
+    FROM pages p
+    LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
+    WHERE p.deleted_at IS NULL
+    ORDER BY t.title
+  `, lang);
+  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null, templates: TEMPLATES });
 });
 
+/** ===== NEW (submit) ===== */
 router.post('/new', requireRoles('admin','editor','author','contributor'), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting('default_language','vi');
+
   try{
-    const { title, slug, status, parent_id, content_html, order_index } = req.body;
+    const { title, slug, status, parent_id, content_html, order_index, template, featured_media_id } = req.body;
     const theSlug = slug && slug.trim() ? toSlug(slug) : toSlug(title);
 
     await db.run(
-      'INSERT INTO pages(status,parent_id,order_index,created_by,updated_by) VALUES(?,?,?,?,?)',
-      status||'draft', parent_id||null, Number(order_index||0), req.user.id, req.user.id
+      `INSERT INTO pages(status,parent_id,order_index,created_by,updated_by,template,featured_media_id)
+       VALUES(?,?,?,?,?,?,?)`,
+      status||'draft', parent_id||null, Number(order_index||0), req.user.id, req.user.id, template || null,
+      featured_media_id ? Number(featured_media_id) : null
     );
 
     const idRow = await db.get('SELECT last_insert_rowid() AS id');
@@ -82,47 +114,54 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
     await logActivity(req.user.id, 'create', 'page', idRow.id);
     res.redirect('/admin/pages');
   }catch(e){
-    const parents = await db.all(
-      'SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL ORDER BY t.title',
-      lang
-    );
-    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message });
+    const parents = await db.all(`
+      SELECT p.id, t.title
+      FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
+      WHERE p.deleted_at IS NULL ORDER BY t.title
+    `, lang);
+    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message, templates: TEMPLATES });
   }
 });
 
-// EDIT - form
+/** ===== EDIT (form) ===== */
 router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), async (req, res) => {
   const db = await getDb();
   const id = req.params.id;
   const lang = await getSetting('default_language','vi');
 
   const parents = await db.all(
-    'SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL AND p.id != ? ORDER BY t.title',
-    lang, id
+    `SELECT p.id, t.title
+     FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
+     WHERE p.deleted_at IS NULL AND p.id <> ?
+     ORDER BY t.title`, lang, id
   );
 
   const item = await db.get(`
-    SELECT p.*, t.title, t.slug, t.full_path, t.content_html
+    SELECT p.*, t.title, t.slug, t.full_path, t.content_html,
+           (SELECT m.url FROM media m WHERE m.id = p.featured_media_id) AS featured_media_url
     FROM pages p
     LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
-    WHERE p.id=?`,
-    lang, id
+    WHERE p.id=?`, lang, id
   );
 
-  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null });
+  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null, templates: TEMPLATES });
 });
 
-// EDIT - submit
+/** ===== EDIT (submit) ===== */
 router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting('default_language','vi');
   const id = req.params.id;
+
   try{
-    const { title, slug, status, parent_id, content_html, order_index } = req.body;
+    const { title, slug, status, parent_id, content_html, order_index, template, featured_media_id } = req.body;
 
     await db.run(
-      'UPDATE pages SET parent_id=?, status=?, order_index=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',
-      parent_id || null, status || 'draft', Number(order_index||0), req.user.id, id
+      `UPDATE pages SET parent_id=?, status=?, order_index=?, updated_by=?, updated_at=CURRENT_TIMESTAMP,
+                        template=?, featured_media_id=?
+       WHERE id=?`,
+      parent_id || null, status || 'draft', Number(order_index||0), req.user.id,
+      template || null, (featured_media_id ? Number(featured_media_id) : null), id
     );
 
     const theSlug = slug && slug.trim() ? toSlug(slug) : toSlug(title);
@@ -138,21 +177,23 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
     res.redirect('/admin/pages');
   }catch(e){
     const parents = await db.all(
-      'SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL AND p.id != ? ORDER BY t.title',
-      lang, id
+      `SELECT p.id, t.title
+       FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
+       WHERE p.deleted_at IS NULL AND p.id <> ?
+       ORDER BY t.title`, lang, id
     );
     const item = await db.get(`
-      SELECT p.*, t.title, t.slug, t.full_path, t.content_html
+      SELECT p.*, t.title, t.slug, t.full_path, t.content_html,
+            (SELECT m.url FROM media m WHERE m.id = p.featured_media_id) AS featured_media_url
       FROM pages p
       LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
-      WHERE p.id=?`,
-      lang, id
+      WHERE p.id=?`, lang, id
     );
-    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message });
+    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message, templates: TEMPLATES });
   }
 });
 
-// REORDER (AJAX) — chống lock + reindex ổn định
+/** ===== REORDER (drag & drop) ===== */
 router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
   const db = await getDb();
   let { node_id, new_parent_id, new_index, lang } = req.body;
@@ -165,7 +206,6 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
 
     await db.exec('BEGIN IMMEDIATE');
 
-    // chặn cycle
     if (parentId != null) {
       const stack = [parentId];
       while (stack.length) {
@@ -176,10 +216,8 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
       }
     }
 
-    // cập nhật cha
     await db.run('UPDATE pages SET parent_id = ? WHERE id = ?', parentId, node_id);
 
-    // lấy danh sách sibling (loại bỏ node_id)
     let siblings = [];
     if (parentId == null) {
       siblings = await db.all(
@@ -193,7 +231,6 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
       );
     }
 
-    // chèn node vào vị trí mới rồi reindex tuần tự
     const ordered = siblings.map(s => s.id);
     const insertAt = Math.max(0, Math.min(newIdx, ordered.length));
     ordered.splice(insertAt, 0, node_id);
@@ -202,7 +239,6 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
       await db.run('UPDATE pages SET order_index = ? WHERE id = ?', i, ordered[i]);
     }
 
-    // rebuild full_path cho cây con
     const updated_paths = await rebuildPageSubtreeFullPaths(node_id, langUse);
 
     await db.exec('COMMIT');
@@ -213,12 +249,7 @@ router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
   }
 });
 
-/**
- * POST /admin/pages/:id/trash
- * - Chặn xoá is_home
- * - Chặn xoá nếu còn children chưa xoá
- * - Soft delete: set deleted_at = now
- */
+/** ===== TRASH / RESTORE (giữ nguyên) ===== */
 router.post('/:id/trash', requireRoles('admin'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const db = await getDb();
@@ -236,17 +267,11 @@ router.post('/:id/trash', requireRoles('admin'), async (req, res) => {
   return res.redirect('/admin/pages');
 });
 
-/**
- * POST /admin/pages/:id/restore
- * - Khôi phục từ trash: set deleted_at = NULL
- */
 router.post('/:id/restore', requireRoles('admin'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const db = await getDb();
-
   const row = await db.get('SELECT id FROM pages WHERE id=? AND deleted_at IS NOT NULL', id);
   if (!row) return res.redirect('/admin/trash?err=not_in_trash');
-
   await db.run('UPDATE pages SET deleted_at = NULL WHERE id=?', id);
   await logActivity(req.user.id, 'restore', 'page', id);
   return res.redirect('/admin/trash?ok=restored');

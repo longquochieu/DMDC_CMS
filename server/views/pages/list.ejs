@@ -1,12 +1,52 @@
+<%- include('../partials/flash') %>
+
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title">Pages</h3>
-    <a href="/admin/pages/new" class="btn btn-primary btn-sm">+ Thêm Page</a>
+    <h3 class="card-title mb-0">Danh sách Pages</h3>
+    <div class="btn-group">
+      <a href="/admin/pages/tree" class="btn btn-outline-secondary btn-sm">🌳 Xem dạng Cây (Drag & Drop)</a>
+      <a href="/admin/pages/new" class="btn btn-primary btn-sm">+ Thêm Page</a>
+    </div>
   </div>
-  <div class="card-body" data-tree="pages" data-lang="<%= lang %>">
-    <%- include('../partials/tree', { nodes: tree, csrfToken }) %>
-    <p class="text-muted mt-3">
-      Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.
-    </p>
+
+  <div class="card-body table-responsive p-0">
+    <!-- (phần bảng 8 cột của bạn giữ nguyên dưới đây) -->
+    <table class="table table-hover table-striped mb-0">
+      <thead>
+        <tr>
+          <th style="width:80px">ID</th>
+          <th>Tên page</th>
+          <th>Page cha</th>
+          <th>Slug</th>
+          <th>Ngày tạo</th>
+          <th>Người tạo</th>
+          <th>Template</th>
+          <th style="width:140px">Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if ((rows||[]).length === 0) { %>
+          <tr><td colspan="8" class="text-center text-muted">Chưa có page nào.</td></tr>
+        <% } %>
+        <% (rows||[]).forEach(r => { %>
+          <tr>
+            <td><code>#<%= r.id %></code></td>
+            <td><strong><%= r.title || '(không tiêu đề)' %></strong></td>
+            <td><%= r.parent_title || '-' %></td>
+            <td><code><%= r.slug || '-' %></code></td>
+            <td><%= r.created_at || '' %></td>
+            <td><%= r.creator_name || '-' %></td>
+            <td><%= r.template || '(default)' %></td>
+            <td>
+              <a class="btn btn-sm btn-primary" href="/admin/pages/<%= r.id %>/edit">Sửa</a>
+              <form action="/admin/pages/<%= r.id %>/trash" method="post" class="d-inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-sm btn-danger" onclick="return confirm('Chuyển page #<%= r.id %> vào Trash?')">Xoá</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
   </div>
 </div>
