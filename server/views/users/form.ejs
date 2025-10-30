@@ -1,0 +1,47 @@
+<%- include('../partials/flash') %>
+<div class="card">
+  <div class="card-header"><strong><%= item && item.id ? 'Edit User' : 'New User' %></strong></div>
+  <div class="card-body">
+    <form method="post" action="<%= item && item.id ? '/admin/users/'+item.id+'/edit' : '/admin/users/new' %>">
+	<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label>Username</label>
+          <input type="text" class="form-control" name="username" value="<%= item?item.username:'' %>" <%= item && item.id ? 'readonly' : '' %> required>
+        </div>
+        <div class="form-group col-md-4">
+          <label>Email</label>
+          <input type="email" class="form-control" name="email" value="<%= item?item.email:'' %>" required>
+        </div>
+        <div class="form-group col-md-4">
+          <label>Display name</label>
+          <input type="text" class="form-control" name="display_name" value="<%= item?item.display_name||'' : '' %>">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label>Role</label>
+          <select class="form-control" name="role">
+            <% ['admin','editor','author','contributor'].forEach(r => { %>
+              <option value="<%= r %>" <%= (item&&item.role===r)?'selected':'' %>><%= r %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label>Status</label>
+          <select class="form-control" name="status">
+            <% ['active','disabled'].forEach(s => { %>
+              <option value="<%= s %>" <%= (item&&item.status===s)?'selected':'' %>><%= s %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label><%= item && item.id ? 'Reset password (optional)' : 'Initial password' %></label>
+          <input type="password" class="form-control" name="password" <%= item?'':'required' %> minlength="8">
+        </div>
+      </div>
+      <button class="btn btn-primary">Save</button>
+      <a href="/admin/users" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+</div>

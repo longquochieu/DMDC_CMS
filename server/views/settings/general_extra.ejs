@@ -1,0 +1,47 @@
+<div class="card mt-3">
+  <div class="card-header"><strong>Branding</strong></div>
+  <div class="card-body">
+    <form method="post" action="/admin/settings/branding" enctype="multipart/form-data">
+		<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="form-group">
+        <label>Site Logo (png/webp/svg)</label>
+        <input type="file" name="site_logo" accept=".png,.webp,.svg">
+        <% if (settings && settings.site_logo) { %>
+          <div class="mt-2"><img src="<%= settings.site_logo %>" style="height:40px"></div>
+        <% } %>
+      </div>
+      <div class="form-group">
+        <label>Favicon (.ico/.png/.svg)</label>
+        <input type="file" name="site_favicon" accept=".ico,.png,.svg">
+        <% if (settings && settings.site_favicon) { %>
+          <div class="mt-2"><img src="<%= settings.site_favicon %>" style="height:16px"></div>
+        <% } %>
+      </div>
+      <button class="btn btn-primary">Save Branding</button>
+    </form>
+  </div>
+</div>
+<div class="card mt-3">
+  <div class="card-header"><strong>SEO & Analytics</strong></div>
+  <div class="card-body">
+    <form method="post" action="/admin/settings/seo">
+      <div class="form-group">
+        <label>GA4 Measurement ID</label>
+        <input type="text" class="form-control" name="ga4_measurement_id" value="<%= settings.ga4_measurement_id||'' %>">
+      </div>
+      <div class="form-group">
+        <label>Google Search Console meta tag</label>
+        <input type="text" class="form-control" name="gsc_meta_tag" value="<%= settings.gsc_meta_tag||'' %>" placeholder='e.g. &lt;meta name="google-site-verification" content="..."/&gt;'>
+      </div>
+      <div class="form-group">
+        <label>MAX_IMAGE_SIZE (MB)</label>
+        <input type="number" class="form-control" name="max_image_size_mb" value="<%= settings.max_image_size_mb||5 %>" min="1" max="50">
+      </div>
+      <div class="form-group">
+        <label>Disk/DB alert threshold (MB)</label>
+        <input type="number" class="form-control" name="disk_alert_mb" value="<%= settings.disk_alert_mb||500 %>" min="100" max="5000">
+      </div>
+      <button class="btn btn-primary">Save SEO/Analytics</button>
+    </form>
+  </div>
+</div>

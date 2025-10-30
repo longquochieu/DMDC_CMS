@@ -1,0 +1,20 @@
+﻿<% /* server/views/media/index.ejs */ %>
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Thư viện Media</h3></div>
+  <div class="card-body">
+    <div class="row">
+      <% (items||[]).forEach(m => { %>
+        <div class="col-md-3 mb-3">
+          <div class="border p-2">
+            <div class="mb-1"><small><strong><%= m.original_filename %></strong></small></div>
+            <div class="mb-2"><small><%= m.mime %> — <%= Math.round((m.size_bytes||0)/1024) %> KB</small></div>
+            <div><img src="<%= m.url %>" style="max-width:100%"></div>
+          </div>
+        </div>
+      <% }) %>
+      <% if (!(items||[]).length) { %>
+        <div class="col-12 text-muted">Chưa có media.</div>
+      <% } %>
+    </div>
+  </div>
+</div>

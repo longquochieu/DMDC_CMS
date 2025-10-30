@@ -1,6 +1,6 @@
-<% if (typeof error !== 'undefined' && error) { %>
-<div class="alert alert-danger"><%= error %></div>
+<% if (typeof message !== 'undefined' && message) { %>
+  <div class="alert alert-success"><%= message %></div>
 <% } %>
-<% if (typeof success !== 'undefined' && success) { %>
-<div class="alert alert-success"><%= success %></div>
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-danger"><%= error %></div>
 <% } %>

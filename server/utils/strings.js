@@ -1,10 +1,9 @@
-import slugify from 'slugify';
-
-export function toSlug(text) {
-  return slugify(text || '', { lower: true, strict: true, locale: 'vi' });
-}
-
-export function buildFullPath(segments) {
-  // segments: array of slugs from root to current
-  return '/' + segments.filter(Boolean).join('/');
+export function toSlug(s){
+  return (s||'').toString().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g,'')
+    .trim()
+    .replace(/\s+/g,'-')
+    .replace(/-+/g,'-');
 }

@@ -1,6 +1,7 @@
 <div class="card">
   <div class="card-body">
     <form method="get" action="/admin/search">
+	<input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="input-group">
         <input class="form-control" name="q" value="<%= q %>" placeholder="Nội dung cần tìm...">
         <div class="input-group-append"><button class="btn btn-primary">Tìm</button></div>

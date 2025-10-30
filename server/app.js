@@ -1,4 +1,4 @@
-// server/app.js  — FULL WIRED
+// server/app.js
 import express from "express";
 import session from "express-session";
 import SQLiteStoreFactory from "connect-sqlite3";
@@ -13,9 +13,10 @@ import cron from "node-cron";
 import { loadUser } from "./middlewares/auth.js";
 import { touchActivity } from "./middlewares/lastActivity.js";
 import { csrfProtection } from "./middlewares/csrf.js";
+import { enforceSessionVersion } from "./middlewares/sessionVersion.js";
 
-// routers
-import adminRoutes from "./routes/admin.js";
+// routers (KHÔNG dùng adminRoutes cũ nữa)
+import adminDashboard from "./routes/admin_dashboard.js";
 import authRoutes from "./routes/auth.js";
 import pagesRoutes from "./routes/pages.js";
 import postsRoutes from "./routes/posts.js";
@@ -23,6 +24,7 @@ import categoriesRoutes from "./routes/categories.js";
 import tagsRoutes from "./routes/tags.js";
 import mediaRoutes from "./routes/media.js";
 import settingsRoutes from "./routes/settings.js";
+import settingsExtra from "./routes/settings_extra.js";
 import usersRoutes from "./routes/users.js";
 import logsRoutes from "./routes/logs.js";
 import trashRoutes from "./routes/trash.js";
@@ -36,7 +38,18 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ✅ TẠI ĐÂY MỚI KHAI BÁO app
 const app = express();
+app.use((req, res, next) => {
+  const t = Date.now();
+  console.log('> ', req.method, req.url);
+  res.on('finish', () => {
+    console.log('< ', req.method, req.url, res.statusCode, (Date.now() - t) + 'ms');
+  });
+  next();
+});
+
 const SQLiteStore = SQLiteStoreFactory(session);
 
 // View engine
@@ -69,6 +82,7 @@ app.use(
 
 // User, activity, CSRF
 app.use(loadUser);
+app.use(enforceSessionVersion);
 app.use(touchActivity);
 app.use(csrfProtection);
 app.use((req, res, next) => {
@@ -80,23 +94,24 @@ app.use((req, res, next) => {
 // Health
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// Routes
+// Routes (đúng thứ tự, tránh trùng /admin)
 app.use("/", authRoutes);
-app.use("/admin", adminRoutes);
+app.use("/admin", adminDashboard);            // Dashboard /admin
 app.use("/admin/pages", pagesRoutes);
 app.use("/admin/posts", postsRoutes);
 app.use("/admin/categories", categoriesRoutes);
 app.use("/admin/tags", tagsRoutes);
 app.use("/admin/media", mediaRoutes);
-app.use("/admin/settings", settingsRoutes);
 app.use("/admin/users", usersRoutes);
+app.use("/admin/settings", settingsRoutes);   // routes/settings.js (có form settings)
+app.use("/admin/settings", settingsExtra);    // routes/settings_extra.js (branding/seo POST)
 app.use("/admin/logs", logsRoutes);
 app.use("/admin/trash", trashRoutes);
 app.use("/admin/search", searchRoutes);
 
-// Cron: publish scheduled posts (5') & purge trash (02:00)
+// Cron
 cron.schedule("*/5 * * * *", async () => { try { await runSchedulerTick(); } catch {} });
-cron.schedule("0 2 * * *", async () => { try { await purgeTrash(); } catch {} });
+cron.schedule("0 2 * * *",  async () => { try { await purgeTrash(); } catch {} });
 
 const PORT = process.env.APP_PORT || 5000;
 app.listen(PORT, () => {

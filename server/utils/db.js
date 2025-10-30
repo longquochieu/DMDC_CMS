@@ -1,10 +1,28 @@
+// server/utils/db.js
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const DB_PATH = process.env.DB_PATH || './data/dmdc.sqlite';
+// Ưu tiên DB_PATH, rơi về DB_FILE, mặc định ./data/app.db
+const DB_PATH = process.env.DB_PATH || process.env.DB_FILE || './data/app.db';
+
+function wrapDbErrorLogging(db) {
+  const orig = { all: db.all.bind(db), get: db.get.bind(db), run: db.run.bind(db) };
+  for (const m of ['all','get','run']) {
+    db[m] = async (sql, ...args) => {
+      try { return await orig[m](sql, ...args); }
+      catch (e) {
+        console.error('[SQL ERROR]', m, '\nSQL:\n', sql, '\nARGS:', args, '\nMSG:', e.message);
+        throw e;
+      }
+    };
+  }
+  return db;
+}
 
 export async function getDb() {
-  return open({ filename: DB_PATH, driver: sqlite3.Database });
+  const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+  if (!global.__loggedDbPath) { console.log('[DB] Using', DB_PATH); global.__loggedDbPath = true; }
+  return wrapDbErrorLogging(db);
 }

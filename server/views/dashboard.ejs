@@ -1,1 +1,62 @@
-<div class='alert alert-info'>Dashboard</div>
+<div class="row">
+  <div class="col-md-3"><div class="small-box bg-info"><div class="inner"><h3><%= stats.posts %></h3><p>Posts</p></div><div class="icon"><i class="fas fa-newspaper"></i></div></div></div>
+  <div class="col-md-3"><div class="small-box bg-success"><div class="inner"><h3><%= stats.pages %></h3><p>Pages</p></div><div class="icon"><i class="fas fa-file"></i></div></div></div>
+  <div class="col-md-3"><div class="small-box bg-warning"><div class="inner"><h3><%= stats.media %></h3><p>Media</p></div><div class="icon"><i class="fas fa-photo-video"></i></div></div></div>
+  <div class="col-md-3"><div class="small-box bg-danger"><div class="inner"><h3><%= stats.users %></h3><p>Users</p></div><div class="icon"><i class="fas fa-users"></i></div></div></div>
+</div>
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><strong>Scheduled Posts</strong></div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-0">
+          <% scheduled.forEach(s => { %>
+            <li><strong><%= s.title||'(no title)' %></strong> — <%= s.scheduled_at %></li>
+          <% }) %>
+          <% if (!scheduled.length){ %><em class="text-muted">Không có</em><% } %>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><strong>Recent Posts</strong></div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-0">
+          <% recent.forEach(s => { %>
+            <li><strong><%= s.title||'(no title)' %></strong> — <%= s.updated_at %> — <span class="badge badge-<%= s.status==='published'?'success':'secondary' %>"><%= s.status %></span></li>
+          <% }) %>
+          <% if (!recent.length){ %><em class="text-muted">Không có</em><% } %>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><strong>Activity Logs (10 gần nhất)</strong></div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-0">
+          <% logs.forEach(l => { %>
+            <li>[<%= l.created_at %>] <%= l.action %> <%= l.entity_type %>#<%= l.entity_id %> by user#<%= l.actor_id %></li>
+          <% }) %>
+          <% if (!logs.length){ %><em class="text-muted">Không có</em><% } %>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><strong>System</strong></div>
+      <div class="card-body">
+        <p>Uploads: <strong><%= sys.uploads_mb %> MB</strong></p>
+        <p>DB: <strong><%= sys.db_mb %> MB</strong></p>
+        <% if (sys.alert) { %><div class="alert alert-warning">Cảnh báo dung lượng vượt ngưỡng!</div><% } %>
+        <% if (settings && settings.ga4_measurement_id) { %>
+          <p class="text-muted">GA4: <code><%= settings.ga4_measurement_id %></code></p>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
