@@ -90,8 +90,8 @@ app.use(csrf({
 	cookie: true,
 	ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
 }));
+app.use(attachCsrfToken);
 app.use((req, res, next) => {
-  try { res.locals.csrfToken = req.csrfToken(); } catch { res.locals.csrfToken = ""; }
   res.locals.user = req.user;
   next();
 });
