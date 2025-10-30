@@ -1,6 +1,7 @@
 // server/app.js
 import express from "express";
 import session from "express-session";
+import csrf from 'csurf';
 import SQLiteStoreFactory from "connect-sqlite3";
 import dotenv from "dotenv";
 import helmet from "helmet";

@@ -1,20 +1,39 @@
-﻿<% /* server/views/media/index.ejs */ %>
+﻿<% const __pageTitle = (typeof pageTitle!=='undefined'?pageTitle:'Media'); %>
 <div class="card">
-  <div class="card-header"><h3 class="card-title">Thư viện Media</h3></div>
+  <div class="card-header">
+    <h3 class="card-title">Media Library</h3>
+    <div class="card-tools">
+      <form class="form-inline" method="get" action="/admin/media">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Tìm theo tên..."
+               value="<%= typeof q!=='undefined'? q : '' %>"/>
+        <button class="btn btn-sm btn-primary ml-2">Tìm</button>
+      </form>
+    </div>
+  </div>
   <div class="card-body">
+    <form id="media-upload" class="mb-3" action="/admin/media/upload" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="custom-file" style="max-width:420px">
+        <input type="file" class="custom-file-input" id="mediaFiles" name="files" multiple>
+        <label class="custom-file-label" for="mediaFiles">Chọn ảnh / video...</label>
+      </div>
+      <button class="btn btn-success btn-sm ml-2">Upload</button>
+    </form>
+
     <div class="row">
-      <% (items||[]).forEach(m => { %>
+      <% (rows||[]).forEach(m => { %>
         <div class="col-md-3 mb-3">
-          <div class="border p-2">
-            <div class="mb-1"><small><strong><%= m.original_filename %></strong></small></div>
-            <div class="mb-2"><small><%= m.mime %> — <%= Math.round((m.size_bytes||0)/1024) %> KB</small></div>
-            <div><img src="<%= m.url %>" style="max-width:100%"></div>
+          <div class="card h-100">
+            <% if ((m.mime||'').startsWith('image/')) { %>
+              <img src="<%= m.url %>" class="card-img-top" alt="<%= m.original_filename %>">
+            <% } %>
+            <div class="card-body">
+              <small class="d-block"><%= m.original_filename %></small>
+              <small class="text-muted"><%= m.mime %></small>
+            </div>
           </div>
         </div>
       <% }) %>
-      <% if (!(items||[]).length) { %>
-        <div class="col-12 text-muted">Chưa có media.</div>
-      <% } %>
     </div>
   </div>
 </div>
