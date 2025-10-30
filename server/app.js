@@ -85,6 +85,10 @@ app.use(loadUser);
 app.use(enforceSessionVersion);
 app.use(touchActivity);
 app.use(csrfProtection);
+app.use(csrf({
+	cookie: true,
+	ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
+}));
 app.use((req, res, next) => {
   try { res.locals.csrfToken = req.csrfToken(); } catch { res.locals.csrfToken = ""; }
   res.locals.user = req.user;
