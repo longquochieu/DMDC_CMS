@@ -1,5 +1,4 @@
-﻿<!-- server/views/media/index.ejs -->
-<section class="content">
+﻿<section class="content">
   <div class="card">
     <div class="card-body">
       <h3 class="mb-3">Media</h3>
@@ -7,38 +6,33 @@
       <form action="/admin/media/upload" method="post" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="form-group">
-          <label>Chọn tệp (có thể nhiều)</label>
+          <label>Chọn tệp</label>
           <input type="file" name="file" multiple class="form-control">
         </div>
         <button class="btn btn-primary">Upload</button>
       </form>
 
       <hr>
-
-      <div class="row" id="media-grid"></div>
+      <div id="media-list" class="row"></div>
     </div>
   </div>
 </section>
 
 <script>
-document.addEventListener('DOMContentLoaded', async function() {
-  const grid = document.getElementById('media-grid');
-  try {
-    const r = await fetch('/admin/media/list', { headers: { 'Accept': 'application/json' }});
-    const { items=[] } = await r.json();
-    grid.innerHTML = items.map(m => `
-      <div class="col-6 col-md-3 mb-3">
-        <div class="card">
-          <div class="card-body text-center">
-            ${m.mime_type.startsWith('image/') ? `<img src="${m.url}" style="max-width:100%;height:100px;object-fit:contain" alt="${m.original_filename}">` : `<i class="fas fa-file fa-3x"></i>`}
-            <div class="small mt-2 text-truncate" title="${m.original_filename}">${m.original_filename}</div>
-            <div class="text-muted small">${(m.size_bytes/1024).toFixed(0)} KB</div>
-          </div>
+(async function(){
+  const listEl = document.getElementById('media-list');
+  async function refresh(){
+    const r = await fetch('/admin/media/list', { headers:{'Accept':'application/json'} });
+    const j = await r.json();
+    listEl.innerHTML = (j.items||[]).map(it => `
+      <div class="col-md-3 mb-3">
+        <div class="card p-2">
+          <img src="${it.url}" class="img-fluid mb-2" alt="">
+          <div class="small text-muted">${it.original_filename}</div>
         </div>
       </div>
     `).join('');
-  } catch (e) {
-    grid.innerHTML = `<div class="col-12 alert alert-danger">Không tải được danh sách media: ${e.message}</div>`;
   }
-});
+  await refresh();
+})();
 </script>

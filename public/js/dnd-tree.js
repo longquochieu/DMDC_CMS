@@ -1,4 +1,3 @@
-
 (function(){
   function getCsrf(){ var m=document.querySelector('meta[name="csrf-token"]'); return m?m.content:''; }
   function toast(msg){ if(window.$ && $.toast){ $.toast(msg); } else { console.log('[toast]', msg); } }

@@ -165,9 +165,10 @@ router.post('/:id/trash', requireRoles('admin'), async (req, res) => {
   }
 
   await db.run('UPDATE pages SET deleted_at = datetime("now") WHERE id=?', id);
+  req.flash('success', 'Đã chuyển Page vào Trash.');
   await logActivity(req.user.id, 'trash', 'page', id);
 
-  return res.redirect('/admin/pages?ok=trashed');
+  return res.redirect('/admin/pages');
 });
 
 /**

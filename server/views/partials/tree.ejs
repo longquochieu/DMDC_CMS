@@ -1,13 +1,40 @@
+<ul class="list-unstyled pl-3">
+  <% (nodes || []).forEach(function(node){ %>
+    <li class="mb-2"
+        data-id="<%= node.id %>"
+        data-parent-id="<%= node.parent_id || '' %>">
+      <div class="d-flex align-items-center">
+        <span class="mr-2 handle" title="Kéo-thả">
+          <i class="fas fa-grip-vertical"></i>
+        </span>
 
-<ul class="tree-level list-unstyled pl-3">
-  <% (nodes||[]).forEach(function(n){ %>
-    <li class="mb-1" data-id="<%= n.id %>">
-      <span class="drag-handle mr-2" title="Kéo để sắp xếp" style="cursor:grab;">☰</span>
-      <a href="/admin/pages/<%= n.id %>/edit"><strong><%= n.title || '(chưa có tiêu đề)' %></strong></a>
-      <small class="text-monospace text-muted ml-2">/<%= n.slug %> — <span data-full-path><%= n.full_path %></span></small>
-      <% if (n.children && n.children.length) { %>
-        <%- include('tree', { nodes: n.children }) %>
+        <strong class="mr-2">
+          <a href="/admin/pages/<%= node.id %>/edit"><%= node.title || ('#'+node.id) %></a>
+        </strong>
+
+        <% if (node.full_path) { %>
+          <code class="text-muted"><%= node.full_path %></code>
+        <% } %>
+
+        <div class="ml-auto">
+          <a href="/admin/pages/<%= node.id %>/edit" class="btn btn-xs btn-secondary mr-1">
+            <i class="fas fa-edit"></i> Edit
+          </a>
+
+          <form action="/admin/pages/<%= node.id %>/trash" method="post"
+                class="d-inline"
+                onsubmit="return confirm('Chuyển page vào Thùng rác?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-xs btn-danger">
+              <i class="fas fa-trash"></i> Trash
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <% if (node.children && node.children.length) { %>
+        <%- include('../partials/tree', { nodes: node.children, csrfToken }) %>
       <% } %>
     </li>
-  <% }); %>
+  <% }) %>
 </ul>

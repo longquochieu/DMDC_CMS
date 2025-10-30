@@ -20,7 +20,7 @@ function wrapDbErrorLogging(db) {
   }
   return db;
 }
-
+let _db;
 export async function getDb() {
 	const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
 	if (!global.__loggedDbPath) { console.log('[DB] Using', DB_PATH); global.__loggedDbPath = true; }

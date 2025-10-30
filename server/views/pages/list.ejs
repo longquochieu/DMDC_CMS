@@ -3,16 +3,13 @@
     <h3 class="card-title">Cây Pages (kéo-thả để sắp xếp / đổi cha)</h3>
     <a href="/admin/pages/new" class="btn btn-primary btn-sm">+ Thêm Page</a>
   </div>
+
   <div class="card-body" data-tree="pages" data-lang="<%= lang %>">
-    <%- include('../partials/tree', { nodes: tree }) 
-		<!-- bên trong vòng lặp render từng page/node -->
-		<form action="/admin/pages/<%= node.id %>/trash" method="post" class="d-inline">
-		  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-		  <button class="btn btn-sm btn-danger" onclick="return confirm('Chuyển page vào Thùng rác?')">
-			<i class="fas fa-trash"></i>
-		  </button>
-		</form>
-	%>
-    <p class="text-muted mt-3">Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.</p>
+    <% /* Render cây: mỗi node sẽ có nút Edit/Xoá ở partial */ %>
+    <%- include('../partials/tree', { nodes: tree, csrfToken }) %>
+
+    <p class="text-muted mt-3">
+      Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.
+    </p>
   </div>
 </div>
