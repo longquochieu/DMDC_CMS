@@ -1,64 +1,58 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 m-0">Posts</h1>
-  <a href="/admin/posts/new" class="btn btn-primary btn-sm">+ New Post</a>
+  <h1 class="h4 m-0">Bài viết</h1>
+  <a href="/admin/posts/new" class="btn btn-primary">Tạo bài viết mới</a>
 </div>
 
-<table class="table table-sm table-hover align-middle">
-  <thead>
-    <tr>
-      <th style="width:72px">Thumb</th>
-      <th>
-        <a href="?sort=title&dir=<%= (sort==='title' && dir==='asc') ? 'desc' : 'asc' %>">
-          Title
-        </a>
-      </th>
-      <th>Categories</th>
-      <th>Tags</th>
-      <th>Author</th>
-      <th>
-        <a href="?sort=status&dir=<%= (sort==='status' && dir==='asc') ? 'desc' : 'asc' %>">
-          Status
-        </a>
-      </th>
-      <th>
-        <a href="?sort=created_at&dir=<%= (sort==='created_at' && dir==='asc') ? 'desc' : 'asc' %>">
-          Created
-        </a>
-      </th>
-      <th style="width:180px">Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% (items||[]).forEach(p => { %>
-      <tr>
-        <td>
-          <% if (p.featured_url) { %>
-            <img src="<%= p.featured_url %>" style="width:64px;height:40px;object-fit:cover" class="border">
-          <% } %>
-        </td>
-        <td>
-          <div class="fw-semibold"><%= p.title || '(không tiêu đề)' %></div>
-          <div class="text-muted small">/<%= p.slug || '' %></div>
-        </td>
-        <td class="small"><%= p.categories || '' %></td>
-        <td class="small"><%= p.tags || '' %></td>
-        <td class="small"><%= p.author || '' %></td>
-        <td>
-          <span class="badge bg-<%= p.status==='published' ? 'success' : (p.status==='draft' ? 'secondary' : 'warning') %>">
-            <%= p.status %>
-          </span>
-        </td>
-        <td class="small"><%= (p.created_at || '').replace('T',' ').slice(0,19) %></td>
-        <td>
-          <a href="/admin/posts/<%= p.id %>/edit" class="btn btn-sm btn-outline-primary">Sửa</a>
-          <form action="/admin/posts/<%= p.id %>/trash" method="post" class="d-inline">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Chuyển vào thùng rác?')">
-              Xoá
-            </button>
-          </form>
-        </td>
-      </tr>
-    <% }) %>
-  </tbody>
-</table>
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th style="width:84px">Ảnh</th>
+          <th>
+            <a href="?sort=title&dir=<%= sort==='title' && dir==='asc' ? 'desc' : 'asc' %>">Tiêu đề bài viết</a>
+          </th>
+          <th>Danh mục</th>
+          <th>Tag</th>
+          <th>Tác giả</th>
+          <th style="width:120px">
+            <a href="?sort=status&dir=<%= sort==='status' && dir==='asc' ? 'desc' : 'asc' %>">Trạng thái</a>
+          </th>
+          <th style="width:170px">
+            <a href="?sort=created_at&dir=<%= sort==='created_at' && dir==='asc' ? 'desc' : 'asc' %>">Ngày tạo</a>
+          </th>
+          <th style="width:120px">Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!items.length) { %>
+          <tr><td colspan="8" class="text-center text-muted py-4">Chưa có bài viết</td></tr>
+        <% } %>
+        <% items.forEach(p => { %>
+          <tr>
+            <td>
+              <% if (p.thumb) { %>
+                <img src="<%= p.thumb %>" alt="" class="rounded border" style="width:72px;height:48px;object-fit:cover">
+              <% } else { %>
+                <div class="text-muted small">—</div>
+              <% } %>
+            </td>
+            <td><a href="/admin/posts/<%= p.id %>/edit"><%= p.title || '(không tiêu đề)' %></a></td>
+            <td><%= p.categories || '' %></td>
+            <td><%= p.tags || '' %></td>
+            <td><%= p.author || '' %></td>
+            <td class="text-capitalize"><%= p.status %></td>
+            <td><%= p.created_at %></td>
+            <td>
+              <a class="btn btn-sm btn-outline-primary" href="/admin/posts/<%= p.id %>/edit">Sửa</a>
+              <form class="d-inline" method="post" action="/admin/posts/<%= p.id %>/trash" onsubmit="return confirm('Chuyển vào Thùng rác?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-sm btn-outline-danger">Xoá</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
