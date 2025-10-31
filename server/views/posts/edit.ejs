@@ -1,345 +1,192 @@
-<% if (error) { %>
-  <div class="alert alert-danger"><%= error %></div>
-<% } %>
-<% if (warn) { %>
-  <div class="alert alert-warning"><%= warn %></div>
-<% } %>
-
-<form method="post" action="<%= item ? '/admin/posts/' + item.id + '/edit' : '/admin/posts/new' %>">
+<form method="post" action="<%= item ? ('/admin/posts/'+item.id+'/edit') : '/admin/posts/new' %>">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="gallery_media_ids" id="gallery_media_ids" value="<%= (selected.gallery_ids||[]).join(',') %>">
+  <input type="hidden" name="featured_media_id" id="featured_media_id" value="<%= item?.featured_media_id || '' %>">
 
   <div class="row g-3">
     <!-- LEFT -->
     <div class="col-lg-9">
+      <% if (error) { %>
+        <div class="alert alert-danger"><%= error %></div>
+      <% } %>
+
+      <!-- Title + slug -->
       <div class="card mb-3">
         <div class="card-body">
           <div class="mb-3">
             <label class="form-label">Tiêu đề bài viết</label>
-            <input class="form-control" name="title" id="titleInput" value="<%= item?.title || '' %>" required>
-            <div class="form-text">Nhập tiêu đề, “Đường dẫn tĩnh” sẽ tự tạo theo tiêu đề.</div>
+            <input type="text" class="form-control" name="title" id="post_title" value="<%= item?.title || '' %>" required>
           </div>
-
-          <div class="mb-3">
-            <label class="form-label">Đường dẫn tĩnh
-              <span class="text-muted" data-bs-toggle="tooltip" title="Dùng cho URL bài viết. Có thể sửa thủ công.">
-                <i class="fas fa-question-circle"></i>
-              </span>
-            </label>
-            <input class="form-control" name="slug" id="slugInput" value="<%= item?.slug || '' %>" placeholder="Tự tạo theo tiêu đề nếu bỏ trống">
-            <div class="small text-muted mt-1">URL xem trước: /<span id="slugPreview"><%= item?.slug || '' %></span></div>
+          <div class="mb-0">
+            <label class="form-label">Đường dẫn tĩnh (slug)</label>
+            <input type="text" class="form-control" name="slug" id="post_slug" value="<%= item?.slug || '' %>" placeholder="tieu-de-bai-viet">
+            <div class="form-text">Tự động tạo khi nhập tiêu đề. Có thể chỉnh tay.</div>
           </div>
         </div>
       </div>
 
-      <!-- Nội dung -->
+      <!-- Content -->
       <div class="card mb-3">
         <div class="card-body">
           <label class="form-label">Nội dung</label>
-          <input type="hidden" name="content_html" id="content_html" value="<%- (item?.content_html || '').replace(/<\/?script/gi,'') %>">
-          <div id="editor" data-quill-editor style="min-height:320px"></div>
+          <div id="quill-editor" data-quill-editor="post" style="min-height:280px"></div>
+          <textarea name="content_html" id="content_html" class="d-none"><%- (item?.content_html || '') %></textarea>
         </div>
       </div>
 
-      <!-- SEO placeholder -->
+      <!-- SEO (placeholder) -->
       <div class="card mb-3">
-        <div class="card-header"><strong>SEO (đặt chỗ)</strong></div>
         <div class="card-body">
+          <h6 class="mb-3">SEO (đặt chỗ – sẽ nối vào Settings sau)</h6>
           <div class="row g-3">
-            <div class="col-md-6"><input class="form-control" disabled placeholder="SEO Title…"></div>
-            <div class="col-md-6"><input class="form-control" disabled placeholder="SEO Description…"></div>
+            <div class="col-md-6">
+              <label class="form-label">SEO Title</label>
+              <input type="text" class="form-control" name="seo_title" value="">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">SEO Description</label>
+              <input type="text" class="form-control" name="seo_description" value="">
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="d-flex gap-2 mb-3">
+      <div class="d-flex gap-2">
         <button class="btn btn-primary">Lưu</button>
-        <a class="btn btn-outline-secondary" href="/admin/posts">Huỷ</a>
+        <a href="/admin/posts" class="btn btn-outline-secondary">Huỷ</a>
       </div>
     </div>
 
     <!-- RIGHT -->
     <div class="col-lg-3">
+      <!-- Cài đặt -->
       <div class="card mb-3">
-        <div class="card-header"><strong>Cài đặt trang</strong></div>
+        <div class="card-header fw-semibold">Cài đặt bài viết</div>
         <div class="card-body">
-          <!-- Trạng thái -->
+          <!-- Status -->
           <div class="mb-3">
-            <label class="form-label">Trạng thái</label>
-            <% const st = (item?.status || 'draft'); %>
-            <select class="form-select" name="status" id="statusSelect">
-              <option value="draft"     <%= st==='draft'?'selected':'' %>>Nháp</option>
-              <option value="pending"   <%= st==='pending'?'selected':'' %>>Chờ duyệt</option>
-              <option value="scheduled" <%= st==='scheduled'?'selected':'' %> <%= !perms.canSchedule?'disabled':'' %>>Lên lịch</option>
-              <option value="published" <%= st==='published'?'selected':'' %>>Xuất bản</option>
+            <label class="form-label">
+              Trạng thái
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Draft: nháp, Pending: chờ duyệt, Scheduled: lên lịch, Published: xuất bản"></i>
+            </label>
+            <select class="form-select" name="status" id="post_status">
+              <option value="draft" <%= item?.status==='draft'?'selected':'' %>>Nháp</option>
+              <option value="pending" <%= item?.status==='pending'?'selected':'' %>>Chờ duyệt</option>
+              <option value="scheduled" <%= item?.status==='scheduled'?'selected':'' %>>Lên lịch</option>
+              <option value="published" <%= item?.status==='published'?'selected':'' %>>Xuất bản</option>
             </select>
-            <% if (!perms.canSchedule) { %>
-              <div class="form-text">Chỉ Admin/Editor có thể đặt lịch.</div>
-            <% } %>
           </div>
 
-          <!-- Lịch đăng -->
+          <!-- Lên lịch -->
           <div class="mb-3">
             <label class="form-label">
-              Thời điểm đăng
-              <span class="text-muted" data-bs-toggle="tooltip" title="Bắt buộc chọn tương lai nếu trạng thái = Lên lịch.">
-                <i class="fas fa-question-circle"></i>
-              </span>
+              Lên lịch đăng
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn thời điểm tương lai để tự động đăng bài."></i>
             </label>
-            <input type="datetime-local" class="form-control" name="scheduled_at" id="scheduledAt"
-                   value="<%= (item?.scheduled_at||'').replace(' ','T') %>" <%= !perms.canSchedule?'disabled':'' %>>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="schedule_enable" name="schedule_enable" value="1" <%= (item?.status==='scheduled' || item?.scheduled_at)?'checked':'' %>>
+              <label class="form-check-label" for="schedule_enable">Bật</label>
+            </div>
+            <input type="datetime-local" class="form-control mt-2" id="scheduled_at" name="scheduled_at" value="<%= item?.scheduled_at ? new Date(item.scheduled_at).toISOString().slice(0,16) : '' %>" <%= (item?.status==='scheduled' || item?.scheduled_at)?'':'disabled' %>>
+            <div class="form-text">Phải là thời điểm trong tương lai.</div>
           </div>
 
-          <!-- Ngày hiển thị -->
+          <!-- Date -->
           <div class="mb-3">
             <label class="form-label">
-              Ngày hiển thị (Date_Visible)
-              <span class="text-muted" data-bs-toggle="tooltip" title="Chỉ là giá trị dùng để render ngoài site.">
-                <i class="fas fa-question-circle"></i>
-              </span>
+              Ngày hiển thị
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Giá trị hiển thị trên FE (không ảnh hưởng ngày tạo)."></i>
             </label>
-            <input type="date" class="form-control" name="display_date"
-                   value="<%= item?.display_date || (new Date().toISOString().slice(0,10)) %>">
+            <input type="date" class="form-control" name="display_date" value="<%= ui.display_date %>">
           </div>
-
-          <!-- Ngày tạo -->
           <div class="mb-3">
             <label class="form-label">Ngày tạo</label>
-            <input class="form-control" value="<%= item?.created_at || new Date().toISOString() %>" readonly>
-            <div class="form-text">Mặc định hiển thị DD/MM/YYYY HH:mm (có thể đổi trong Cài đặt sau).</div>
+            <input type="text" class="form-control" value="<%= ui.created_at ? new Date(ui.created_at).toLocaleString('vi-VN') : '' %>" disabled>
           </div>
 
           <!-- Ảnh đại diện -->
           <div class="mb-3">
-            <label class="form-label d-block">
+            <label class="form-label">
               Ảnh đại diện
-              <span class="text-muted" data-bs-toggle="tooltip" title="Tải từ máy hoặc chọn từ thư viện.">
-                <i class="fas fa-question-circle"></i>
-              </span>
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Tải ảnh hoặc chọn ảnh có sẵn."></i>
             </label>
-            <input type="hidden" name="featured_media_id" id="featured_media_id" value="<%= featured?.id || '' %>">
-            <div id="featuredPreview" class="mb-2">
-              <% if (featured?.url) { %>
-                <img src="<%= featured.url %>" style="width:100%;max-height:160px;object-fit:cover" class="border rounded">
-              <% } else { %>
-                <div class="text-muted small">Chưa chọn ảnh</div>
-              <% } %>
+            <div class="mb-2">
+              <img id="featured_preview" src="<%= item?.featured_url || '' %>" class="img-fluid border <%= item?.featured_url?'':'d-none' %>" style="max-height:160px;object-fit:cover">
             </div>
-            <div class="btn-group w-100">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnUploadFeatured">Tải ảnh</button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPickFeatured">Chọn ảnh</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-upload-featured">Tải ảnh</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pick-featured">Chọn ảnh</button>
             </div>
           </div>
 
           <!-- Danh mục -->
           <div class="mb-3">
-            <label class="form-label d-block">
+            <label class="form-label">
               Danh mục
-              <span class="text-muted" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn).">
-                <i class="fas fa-question-circle"></i>
-              </span>
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn) trong số danh mục đã chọn."></i>
             </label>
-            <div class="border rounded p-2" style="max-height:260px; overflow:auto">
-              <% const selSet = new Set((selectedCategoryIds||[]).map(String)); %>
-              <% categories.forEach(c => { %>
-                <div class="d-flex align-items-center py-1 border-bottom" style="--indent:<%= c.depth*16 %>px">
-                  <div style="width:var(--indent)"></div>
-                  <div class="form-check me-2">
-                    <input class="form-check-input cat-check" type="checkbox" value="<%= c.id %>" name="category_ids"
-                           id="cat_<%= c.id %>" <%= selSet.has(String(c.id))?'checked':'' %>>
-                    <label class="form-check-label" for="cat_<%= c.id %>"><%= c.name || ('#'+c.id) %></label>
+
+            <div class="list-group border">
+              <% (categories||[]).forEach(c => { %>
+                <label class="list-group-item">
+                  <div class="d-flex align-items-center">
+                    <input class="form-check-input me-2" type="checkbox" name="category_ids" value="<%= c.id %>" <%= (selected.category_ids||[]).includes(c.id)?'checked':'' %> >
+                    <span style="padding-left:<%= c.depth*16 %>px"><%= c.title || ('#'+c.id) %></span>
+                    <div class="ms-auto">
+                      <input class="form-check-input" type="radio" name="primary_category_id" value="<%= c.id %>" <%= (selected.primary_category_id===c.id)?'checked':'' %> >
+                    </div>
                   </div>
-                  <div class="form-check ms-auto">
-                    <input class="form-check-input cat-primary" type="radio" name="primary_category_id"
-                           value="<%= c.id %>" <%= String(primaryCategoryId||'')===String(c.id)?'checked':'' %>>
-                  </div>
-                </div>
+                </label>
               <% }) %>
             </div>
-          </div>
-
-          <!-- Tag -->
-          <div class="mb-3">
-            <label class="form-label">Tag (phân cách bằng dấu phẩy)</label>
-            <input class="form-control" name="tags" value="<%= (tags||[]).join(', ') %>">
           </div>
 
           <!-- Gallery -->
           <div class="mb-3">
-            <label class="form-label d-block">
-              Gallery ảnh
-              <span class="text-muted" data-bs-toggle="tooltip" title="Chọn nhiều ảnh từ thư viện hoặc tải nhiều ảnh.">
-                <i class="fas fa-question-circle"></i>
-              </span>
+            <label class="form-label">
+              Thư viện ảnh (gallery)
+              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn nhiều ảnh hoặc tải từ máy tính."></i>
             </label>
-            <input type="hidden" name="gallery_media_ids" id="gallery_media_ids" value="<%= (gallery||[]).map(g=>g.id).join(',') %>">
-            <div id="galleryPreview" class="d-flex flex-wrap gap-2 mb-2">
-              <% (gallery||[]).forEach(g => { %>
-                <img src="<%= g.url %>" style="height:70px" class="border rounded">
+            <div id="gallery-preview" class="d-flex flex-wrap gap-2 mb-2">
+              <% (selected.gallery_ids||[]).forEach(id => { %>
+                <img data-id="<%= id %>" src="/uploads/_byid/<%= id %>" class="border" style="height:70px;object-fit:cover">
               <% }) %>
             </div>
-            <div class="btn-group w-100">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnUploadGallery">Tải ảnh</button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPickGallery">Chọn ảnh</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-upload-gallery">Tải ảnh</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pick-gallery">Chọn ảnh</button>
             </div>
           </div>
-
         </div>
       </div>
     </div>
+    <!-- /RIGHT -->
   </div>
 </form>
 
 <script>
-(function(){
-  // Bootstrap tooltip
-  const t = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  t.forEach(el => new bootstrap.Tooltip(el));
-
-  // Slug live-update theo tiêu đề (chỉ khi người dùng chưa sửa tay)
-  const titleEl = document.getElementById('titleInput');
-  const slugEl  = document.getElementById('slugInput');
-  const slugPrev = document.getElementById('slugPreview');
-  let slugTouched = !!(slugEl.value && slugEl.value.trim().length);
-  slugEl.addEventListener('input', ()=>{ slugTouched = true; slugPrev.textContent = slugEl.value.trim(); });
-  function vnSlugify(s){
-    return (s||'')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g,'')
-      .trim().replace(/\s+/g,'-').replace(/-+/g,'-');
-  }
-  titleEl.addEventListener('input', ()=>{
-    if (!slugTouched) {
-      const v = vnSlugify(titleEl.value);
-      slugEl.value = v; slugPrev.textContent = v;
+  // slug auto
+  (function(){
+    const title = document.getElementById('post_title');
+    const slug  = document.getElementById('post_slug');
+    if (title && slug && !slug.value) {
+      title.addEventListener('input', function(){
+        const v = (this.value||'')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .toLowerCase().replace(/[^a-z0-9\s\-]/g,'').trim().replace(/\s+/g,'-');
+        slug.value = v;
+      });
     }
-  });
+  })();
 
-  // Quill
-  const hidden = document.getElementById('content_html');
-  const holder = document.getElementById('editor');
-  if (holder) {
-    const quill = new Quill(holder, {
-      theme: 'snow',
-      modules: { toolbar: [
-        [{ 'header': [2,3,4,false] }],
-        ['bold','italic','underline','strike'],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        ['link','blockquote','code','image','video'],
-        ['clean']
-      ]}
-    });
-    if (hidden.value) { const div=document.createElement('div'); div.innerHTML=hidden.value; quill.root.innerHTML=div.innerHTML; }
-    holder.closest('form').addEventListener('submit', function(){
-      hidden.value = quill.root.innerHTML;
-    });
-  }
-
-  // CSRF helper
-  function getCsrf(){
-    const m = document.querySelector('meta[name="csrf-token"]'); return m?m.content:'';
-  }
-
-  // Media helpers
-  async function listMedia(){
-    const r = await fetch('/admin/media/list', { headers: { Accept:'application/json' } });
-    if (!r.ok) throw new Error('Không đọc được danh sách media'); return r.json();
-  }
-  async function uploadOne(file){
-    const fd = new FormData(); fd.append('file', file);
-    const r = await fetch('/admin/media/upload', { method:'POST', body: fd, headers:{ 'CSRF-Token': getCsrf() }});
-    if (!r.ok) { const t = await r.text(); throw new Error('Upload thất bại: ' + t); }
-    return r.json();
-  }
-
-  // Featured
-  const featuredId = document.getElementById('featured_media_id');
-  const featuredPreview = document.getElementById('featuredPreview');
-  document.getElementById('btnPickFeatured')?.addEventListener('click', async function(){
-    const json = await listMedia();
-    const choice = prompt('Chọn số thứ tự ảnh đại diện:\n' + json.items.map((m,i)=> `${i}: ${m.original_filename}`).join('\n'));
-    if (choice === null) return;
-    const i = parseInt(choice,10);
-    if (Number.isNaN(i) || i<0 || i>=json.items.length) return;
-    featuredId.value = json.items[i].id;
-    featuredPreview.innerHTML = `<img src="${json.items[i].url}" style="width:100%;max-height:160px;object-fit:cover" class="border rounded">`;
-  });
-  document.getElementById('btnUploadFeatured')?.addEventListener('click', async function(){
-    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
-    inp.onchange = async () => {
-      if (!inp.files[0]) return;
-      const info = await uploadOne(inp.files[0]);
-      featuredId.value = info.id;
-      featuredPreview.innerHTML = `<img src="${info.url}" style="width:100%;max-height:160px;object-fit:cover" class="border rounded">`;
-    };
-    inp.click();
-  });
-
-  // Gallery
-  const galHidden = document.getElementById('gallery_media_ids');
-  const galPreview = document.getElementById('galleryPreview');
-  function syncGalleryHidden(arr){ galHidden.value = arr.map(x=>x.id).join(','); }
-  document.getElementById('btnPickGallery')?.addEventListener('click', async function(){
-    const json = await listMedia();
-    const choice = prompt('Nhập danh sách chỉ số, ví dụ: 0,2,5');
-    if (choice === null) return;
-    const idx = choice.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!Number.isNaN(n)&&n>=0&&n<json.items.length);
-    const picked = idx.map(i => ({ id: json.items[i].id, url: json.items[i].url }));
-    syncGalleryHidden(picked);
-    galPreview.innerHTML = picked.map(p=>`<img src="${p.url}" style="height:70px" class="border rounded">`).join('');
-  });
-  document.getElementById('btnUploadGallery')?.addEventListener('click', async function(){
-    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple = true;
-    inp.onchange = async () => {
-      const out = [];
-      for (const f of inp.files) { out.push(await uploadOne(f)); }
-      syncGalleryHidden(out);
-      galPreview.innerHTML = out.map(p=>`<img src="${p.url}" style="height:70px" class="border rounded">`).join('');
-    };
-    inp.click();
-  });
-
-  // Category primary rule
-  const catChecks = Array.from(document.querySelectorAll('.cat-check'));
-  const catPrimary = Array.from(document.querySelectorAll('.cat-primary'));
-  function enforcePrimaryRule(){
-    const checked = new Set(catChecks.filter(c=>c.checked).map(c=>String(c.value)));
-    catPrimary.forEach(radio=>{
-      const enable = checked.has(String(radio.value));
-      radio.disabled = !enable;
-      if (!enable && radio.checked) radio.checked = false;
-    });
-  }
-  catChecks.forEach(c => c.addEventListener('change', enforcePrimaryRule));
-  enforcePrimaryRule();
-
-  // Client-side validations on submit
-  const form = document.querySelector('form');
-  form.addEventListener('submit', function(ev){
-    const checked = catChecks.filter(c=>c.checked).map(c=>Number(c.value));
-    if (checked.length === 0) {
-      ev.preventDefault(); alert('Bạn chưa chọn danh mục, vui lòng chọn.');
-      return;
+  // schedule toggle
+  (function(){
+    const sw = document.getElementById('schedule_enable');
+    const dt = document.getElementById('scheduled_at');
+    if (sw && dt) {
+      sw.addEventListener('change', ()=> {
+        dt.disabled = !sw.checked;
+      });
     }
-    const primary = catPrimary.find(r=>r.checked);
-    if (checked.length > 1 && !primary) {
-      // auto-choose max id
-      const maxId = Math.max(...checked);
-      const radio = catPrimary.find(r=>Number(r.value)===maxId);
-      if (radio) radio.checked = true;
-      alert('Bạn chưa chọn danh mục chính, hệ thống tự chọn danh mục có ID ' + maxId + ' làm danh mục chính.');
-    }
-
-    // scheduled must be future
-    const status = document.getElementById('statusSelect')?.value;
-    const sch = document.getElementById('scheduledAt')?.value;
-    if (status === 'scheduled') {
-      if (!sch || new Date(sch).getTime() <= Date.now()) {
-        ev.preventDefault(); alert('Vui lòng chọn thời điểm đăng trong tương lai cho trạng thái Lên lịch.');
-        return;
-      }
-    }
-  });
-})();
+  })();
 </script>
