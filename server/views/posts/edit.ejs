@@ -1,367 +1,158 @@
-<% /* server/views/posts/edit.ejs */ %>
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
 
-<div class="row">
-  <!-- LEFT 80% -->
-  <div class="col-lg-9">
-    <% if (error) { %>
-      <div class="alert alert-danger"><%= error %></div>
-    <% } %>
+<form method="post" action="<%= (mode==='edit' && item) ? ('/admin/posts/'+item.id+'/edit') : '/admin/posts/new' %>">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
-    <!-- Tiêu đề & Slug -->
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label fw-bold">Tiêu đề bài viết</label>
-          <input type="text" class="form-control" name="title" form="post-form"
-                 value="<%= (item && item.title) || '' %>" placeholder="Nhập tiêu đề...">
-          <div class="form-text">Nhập tiêu đề để hệ thống gợi ý đường dẫn tĩnh.</div>
-        </div>
-        <div class="mb-0">
-          <label class="form-label fw-bold">Đường dẫn tĩnh (slug)</label>
-          <input type="text" class="form-control" name="slug" form="post-form"
-                 value="<%= (item && item.slug) || '' %>" placeholder="ví dụ: bai-viet-cua-toi">
-          <div class="form-text">Tự động nhận theo tiêu đề (bạn vẫn có thể sửa).</div>
-        </div>
+  <div class="row">
+    <!-- LEFT -->
+    <div class="col-lg-9">
+      <!-- Title -->
+      <div class="mb-3">
+        <label class="form-label">Tiêu đề bài viết</label>
+        <input type="text" class="form-control" name="title" id="title"
+               value="<%= (item && item.title) || '' %>" placeholder="Nhập tiêu đề...">
       </div>
-    </div>
 
-    <!-- Nội dung (Quill) -->
-    <div class="card mb-3">
-      <div class="card-header"><strong>Nội dung</strong></div>
-      <div class="card-body">
-        <div id="editor" data-quill-editor style="min-height:260px"></div>
-        <textarea id="content_html" name="content_html" form="post-form" hidden><%- (item && item.content_html) ? item.content_html : '' %></textarea>
+      <!-- Slug -->
+      <div class="mb-3">
+        <label class="form-label">Đường dẫn tĩnh</label>
+        <input type="text" class="form-control" name="slug" id="slug"
+               value="<%= (item && item.slug) || '' %>" placeholder="tu-dong-tao-theo-tieu-de">
       </div>
-    </div>
 
-    <!-- SEO (placeholder) -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <strong>SEO</strong>
-        <i class="fas fa-question-circle ms-1 text-muted"
-           data-toggle="tooltip" title="Khu vực SEO sẽ ghép logic sau."></i>
+      <!-- Content -->
+      <div class="mb-3">
+        <label class="form-label">Nội dung</label>
+        <div id="editor" data-quill-editor
+             style="min-height:300px;border:1px solid #dee2e6;border-radius:.375rem;"></div>
+        <textarea id="content_html" name="content_html" hidden><%= (item && item.content_html) || '' %></textarea>
       </div>
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-lg-6">
-            <label class="form-label">SEO Title</label>
-            <input type="text" class="form-control" disabled placeholder="(đang để trống)">
-          </div>
-          <div class="col-lg-6">
-            <label class="form-label">SEO Description</label>
-            <input type="text" class="form-control" disabled placeholder="(đang để trống)">
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Action -->
-    <div class="d-flex gap-2 mb-4">
-      <button class="btn btn-primary" form="post-form">Lưu</button>
-      <a href="/admin/posts" class="btn btn-outline-secondary">Huỷ</a>
-    </div>
-  </div>
-
-  <!-- RIGHT 20% -->
-  <div class="col-lg-3">
-    <form id="post-form" method="post"
-          action="<%= (isNew ? '/admin/posts/new' : ('/admin/posts/' + item.id + '/edit')) %>">
-      <%- include('../partials/csrf') %>
-
-      <!-- Trạng thái & Lên lịch -->
+      <!-- SEO placeholder -->
       <div class="card mb-3">
         <div class="card-header d-flex align-items-center">
-          <strong>Trạng thái</strong>
-          <i class="fas fa-question-circle ms-1 text-muted"
-             data-toggle="tooltip"
-             title="Chọn 'Lên lịch' để hẹn giờ xuất bản."></i>
+          <strong>SEO</strong>
+          <span class="ms-2 text-muted small">(hiển thị sẵn, sẽ ghép chức năng sau)</span>
         </div>
         <div class="card-body">
-          <select class="form-select" name="status" id="status-select">
-            <option value="draft"     <%= item && item.status==='draft'     ? 'selected':'' %>>Bản nháp</option>
-            <option value="pending"   <%= item && item.status==='pending'   ? 'selected':'' %>>Chờ duyệt</option>
-            <option value="scheduled" <%= item && item.status==='scheduled' ? 'selected':'' %>>Lên lịch</option>
-            <option value="published" <%= item && item.status==='published' ? 'selected':'' %>>Xuất bản</option>
-          </select>
-
-          <div id="schedule-wrap" class="mt-2" style="display:none">
-            <label class="form-label fw-bold mb-1">Thời điểm đăng</label>
-            <input type="datetime-local" class="form-control" name="scheduled_at_local" id="scheduled_at_local">
-            <div class="form-text">Chỉ áp dụng khi trạng thái là “Lên lịch”.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Ảnh đại diện -->
-      <div class="card mb-3">
-        <div class="card-header d-flex align-items-center">
-          <strong>Ảnh đại diện</strong>
-          <i class="fas fa-question-circle ms-1 text-muted"
-             data-toggle="tooltip"
-             title="Tải ảnh từ máy hoặc chọn từ thư viện."></i>
-        </div>
-        <div class="card-body">
-          <div class="mb-2">
-            <img id="featured-preview"
-                 src="<%= (featured && featured.url) ? featured.url : '' %>"
-                 class="img-fluid border <%= (featured&&featured.url)?'':'d-none' %>">
-          </div>
-          <input type="hidden" name="featured_media_id" id="featured_media_id"
-                 value="<%= (featured && featured.id) ? featured.id : '' %>">
-
-          <div class="d-grid gap-2">
-            <button class="btn btn-outline-primary" id="btnFeaturedUpload" type="button">Tải ảnh</button>
-            <button class="btn btn-outline-secondary" id="btnFeaturedChoose" type="button">Chọn ảnh</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Danh mục -->
-      <div class="card mb-3">
-        <div class="card-header d-flex align-items-center">
-          <strong>Danh mục</strong>
-          <i class="fas fa-question-circle ms-1 text-muted"
-             data-toggle="tooltip"
-             title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn)."></i>
-        </div>
-        <div class="card-body" style="max-height: 300px; overflow:auto">
-          <% (categories || []).forEach(c => {
-               const checked = (selectedCategoryIds || []).includes(String(c.id));
-               const primary = (String(primaryCategoryId||'') === String(c.id));
-          %>
-            <div class="d-flex align-items-center mb-1">
-              <div class="form-check me-2" style="margin-left:<%= c.depth*16 %>px">
-                <input class="form-check-input cat-check"
-                       type="checkbox"
-                       id="cat_<%= c.id %>"
-                       name="category_ids[]"
-                       value="<%= c.id %>"
-                       <%= checked ? 'checked' : '' %> >
-                <label class="form-check-label" for="cat_<%= c.id %>">
-                  <%= c.name %>
-                </label>
-              </div>
-              <div class="form-check ms-auto">
-                <input class="form-check-input primary-radio"
-                       type="radio"
-                       name="primary_category_id"
-                       value="<%= c.id %>"
-                       <%= primary ? 'checked' : '' %> >
-              </div>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Meta Title</label>
+              <input type="text" class="form-control" disabled placeholder="(đang để trống)">
             </div>
-          <% }) %>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Meta Description</label>
+              <input type="text" class="form-control" disabled placeholder="(đang để trống)">
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Thư viện ảnh (Gallery) -->
-      <div class="card mb-4">
-        <div class="card-header d-flex align-items-center">
-          <strong>Thư viện ảnh</strong>
-          <i class="fas fa-question-circle ms-1 text-muted"
-             data-toggle="tooltip" title="Chọn/Tải nhiều ảnh. Kéo-thả sắp xếp (ver sau)."></i>
-        </div>
+      <!-- Actions -->
+      <div class="mb-5">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-outline-secondary" href="/admin/posts">Huỷ</a>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="col-lg-3">
+      <div class="card mb-3">
+        <div class="card-header"><strong>Cài đặt bài viết</strong></div>
         <div class="card-body">
-          <div id="gallery-list" class="d-flex flex-wrap gap-2 mb-2">
-            <% (gallery || []).forEach(g => { %>
-              <div class="position-relative" data-media-id="<%= g.id %>">
-                <img src="<%= g.url %>" class="border" style="height:70px">
-                <input type="hidden" name="gallery_media_ids[]" value="<%= g.id %>">
-                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 gallery-remove" title="Xoá">
-                  &times;
-                </button>
-              </div>
-            <% }) %>
+          <!-- Status -->
+          <div class="mb-3">
+            <label class="form-label">Trạng thái bài viết</label>
+            <select class="form-select" name="status" id="status">
+              <% const st = (item && item.status) || 'draft'; %>
+              <option value="draft" <%= st==='draft'?'selected':'' %>>Bản nháp</option>
+              <option value="pending" <%= st==='pending'?'selected':'' %>>Chờ duyệt</option>
+              <option value="scheduled" <%= st==='scheduled'?'selected':'' %>>Lên lịch</option>
+              <option value="published" <%= st==='published'?'selected':'' %>>Xuất bản</option>
+            </select>
           </div>
-          <div class="d-grid gap-2">
-            <button class="btn btn-outline-primary" id="btnGalleryUpload" type="button">Tải ảnh</button>
-            <button class="btn btn-outline-secondary" id="btnGalleryChoose" type="button">Chọn ảnh</button>
+
+          <!-- Created at -->
+          <div class="mb-3">
+            <label class="form-label">Ngày tạo</label>
+            <input type="datetime-local" class="form-control" name="created_at_local"
+                   value="<%= created_at_local || '' %>">
+            <div class="form-text">Định dạng: DD/MM/YYYY HH:mm (theo Cài đặt múi giờ)</div>
+          </div>
+
+          <!-- Schedule at -->
+          <div class="mb-3" id="schedule-block" style="<%= ((item && item.status)==='scheduled' || (typeof scheduled_at_local!=='undefined' && scheduled_at_local))?'':'display:none' %>">
+            <label class="form-label">Lên lịch đăng</label>
+            <input type="datetime-local" class="form-control" name="scheduled_at_local"
+                   value="<%= scheduled_at_local || '' %>">
+            <div class="form-text">Chỉ áp dụng khi trạng thái là “Lên lịch”. Thời điểm phải ở tương lai.</div>
+          </div>
+
+          <!-- Featured image -->
+          <div class="mb-3">
+            <label class="form-label">Ảnh đại diện</label>
+            <div id="featured-preview" class="border rounded mb-2" style="min-height:120px; display:flex;align-items:center;justify-content:center; overflow:hidden;">
+              <% if (item && item.featured_url) { %>
+                <img src="<%= item.featured_url %>" style="max-width:100%;max-height:160px;object-fit:cover">
+              <% } else { %>
+                <span class="text-muted">Chưa chọn ảnh</span>
+              <% } %>
+            </div>
+            <input type="hidden" name="featured_url" id="featured_url" value="<%= (item && item.featured_url) || '' %>">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFeaturedUpload">Tải ảnh</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnFeaturedPick">Chọn ảnh</button>
+            </div>
+          </div>
+
+          <!-- Categories -->
+          <div class="mb-3">
+            <label class="form-label">
+              Danh mục
+              <span class="ms-1 text-muted" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn) trong số danh mục đã chọn.">?</span>
+            </label>
+
+            <div class="border rounded p-2" style="max-height:260px; overflow:auto;">
+              <% (categories||[]).forEach(c => {
+                   const checked = (selectedCategoryIds || []).includes(String(c.id));
+                   const primary = (String(primaryCategoryId||'') === String(c.id));
+              %>
+                <label class="list-group-item d-flex align-items-center justify-content-between py-2 px-0 border-0">
+                  <span class="d-flex align-items-center">
+                    <input class="form-check-input me-2 cat-check" type="checkbox"
+                           name="category_ids[]" value="<%= c.id %>" <%= checked?'checked':'' %>>
+                    <span class="text-truncate"><%= c.indented_name %></span>
+                  </span>
+                  <span class="ms-2">
+                    <input class="form-check-input cat-radio" type="radio"
+                           name="primary_category_id" value="<%= c.id %>" <%= primary?'checked':'' %> <%= checked?'':'disabled' %>>
+                  </span>
+                </label>
+              <% }) %>
+            </div>
+          </div>
+
+          <!-- Gallery -->
+          <div class="mb-3">
+            <label class="form-label">Thư viện ảnh</label>
+            <div id="gallery-preview" class="d-flex flex-wrap gap-2 mb-2">
+              <% (gallery||[]).forEach(g => { %>
+                <div class="position-relative">
+                  <img src="<%= g.url %>" style="height:70px" class="border">
+                  <input type="hidden" name="gallery_urls[]" value="<%= g.url %>">
+                  <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 gallery-remove" aria-label="Remove" style="line-height:1;padding:.1rem .25rem;">×</button>
+                </div>
+              <% }) %>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGalleryUpload">Tải ảnh</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnGalleryPick">Chọn ảnh</button>
+            </div>
           </div>
         </div>
       </div>
-    </form>
+    </div> <!-- /RIGHT -->
   </div>
-</div>
-
-<script>
-(function(){
-  // --- Bootstrap tooltip (AdminLTE/BS4) ---
-  if (window.jQuery && $('[data-toggle="tooltip"]').tooltip) {
-    $('[data-toggle="tooltip"]').tooltip();
-  }
-
-  // --- Slug auto from title ---
-  const titleEl = document.querySelector('input[name="title"]');
-  const slugEl  = document.querySelector('input[name="slug"]');
-  if (titleEl && slugEl) {
-    titleEl.addEventListener('input', function(){
-      if (!slugEl.dataset.touched && !slugEl.value) {
-        slugEl.value = (titleEl.value || '')
-          .toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .replace(/[^a-z0-9\- ]/g,'')
-          .trim().replace(/\s+/g,'-').replace(/\-+/g,'-');
-      }
-    });
-    slugEl.addEventListener('input', ()=> slugEl.dataset.touched = '1');
-  }
-
-  // --- Quill editor sync ---
-  function ensureQuill(cb){
-    if (window.Quill) return cb();
-    // nếu layout đã load thì có rồi; an toàn: không auto load CDN nữa để tránh trùng
-    cb();
-  }
-  ensureQuill(function(){
-    const el = document.getElementById('editor');
-    const hidden = document.getElementById('content_html');
-    if (!el || !hidden || !window.Quill) return;
-    const quill = new Quill(el, {
-      theme: 'snow',
-      modules: { toolbar: [
-        [{ 'header': [2,3,4,false] }],
-        ['bold','italic','underline','strike'],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        ['link','blockquote','code','image','video'],
-        ['clean']
-      ]}
-    });
-    // seed content
-    if (hidden.value) { quill.root.innerHTML = hidden.value; }
-    // on submit
-    const form = document.getElementById('post-form');
-    if (form) form.addEventListener('submit', function(){ hidden.value = quill.root.innerHTML; });
-    // fix caret khi content rỗng
-    if (!hidden.value) { quill.focus(); }
-  });
-
-  // --- Lên lịch: show/hide input theo trạng thái ---
-  const statusSel = document.getElementById('status-select');
-  const schedWrap = document.getElementById('schedule-wrap');
-  const schedInp  = document.getElementById('scheduled_at_local');
-  function syncSchedule(){
-    if (!statusSel) return;
-    const show = (statusSel.value === 'scheduled');
-    schedWrap.style.display = show ? '' : 'none';
-  }
-  if (statusSel) {
-    statusSel.addEventListener('change', syncSchedule);
-    syncSchedule();
-  }
-
-  // --- CSRF header for AJAX ---
-  function getCsrf(){
-    const m = document.querySelector('meta[name="csrf-token"]');
-    return m ? m.content : '';
-  }
-
-  // --- Featured upload/select ---
-  const featuredIdInp = document.getElementById('featured_media_id');
-  const featuredPrev  = document.getElementById('featured-preview');
-  function setFeatured(id, url){
-    if (!featuredIdInp) return;
-    featuredIdInp.value = id || '';
-    if (featuredPrev) {
-      if (url) { featuredPrev.src = url; featuredPrev.classList.remove('d-none'); }
-      else { featuredPrev.src = ''; featuredPrev.classList.add('d-none'); }
-    }
-  }
-  const btnFU = document.getElementById('btnFeaturedUpload');
-  if (btnFU) btnFU.addEventListener('click', function(){
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*';
-    inp.onchange = function(){
-      const f = inp.files && inp.files[0]; if (!f) return;
-      const fd = new FormData(); fd.append('file', f);
-      fetch('/admin/media/upload', { method:'POST', body: fd, headers: { 'CSRF-Token': getCsrf() } })
-        .then(r => r.json())
-        .then(info => setFeatured(info.id, info.url))
-        .catch(e => alert('Upload lỗi: ' + e.message));
-    };
-    inp.click();
-  });
-  const btnFC = document.getElementById('btnFeaturedChoose');
-  if (btnFC) btnFC.addEventListener('click', function(){
-    fetch('/admin/media/list', { headers: { 'Accept': 'application/json' } })
-      .then(r => r.json())
-      .then(json => {
-        const choice = window.prompt('Nhập số thứ tự ảnh (0..n):\n' + json.items.map((m,i)=> i+': '+m.original_filename).join('\n'));
-        if (choice===null) return;
-        const i = parseInt(choice,10);
-        if (isNaN(i) || i<0 || i>=json.items.length) return alert('Lựa chọn không hợp lệ');
-        setFeatured(json.items[i].id, json.items[i].url);
-      })
-      .catch(e=>alert('Không tải được thư viện: '+e.message));
-  });
-
-  // --- Gallery upload/select/remove ---
-  const galleryList = document.getElementById('gallery-list');
-  function addGallery(id, url){
-    const wrap = document.createElement('div');
-    wrap.className = 'position-relative';
-    wrap.setAttribute('data-media-id', String(id));
-    wrap.innerHTML = `
-      <img src="${url}" class="border" style="height:70px">
-      <input type="hidden" name="gallery_media_ids[]" value="${id}">
-      <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 gallery-remove" title="Xoá">&times;</button>
-    `;
-    galleryList.appendChild(wrap);
-  }
-  if (galleryList) {
-    galleryList.addEventListener('click', function(e){
-      const btn = e.target.closest('.gallery-remove');
-      if (btn) {
-        btn.parentElement.remove();
-      }
-    });
-  }
-  const btnGU = document.getElementById('btnGalleryUpload');
-  if (btnGU) btnGU.addEventListener('click', function(){
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-    inp.onchange = function(){
-      const files = Array.from(inp.files || []);
-      (async function run(){
-        for (const f of files) {
-          const fd = new FormData(); fd.append('file', f);
-          const r = await fetch('/admin/media/upload', { method:'POST', body: fd, headers:{ 'CSRF-Token': getCsrf() } });
-          const info = await r.json();
-          addGallery(info.id, info.url);
-        }
-      })().catch(e => alert('Upload lỗi: '+e.message));
-    };
-    inp.click();
-  });
-  const btnGC = document.getElementById('btnGalleryChoose');
-  if (btnGC) btnGC.addEventListener('click', function(){
-    fetch('/admin/media/list', { headers: { 'Accept': 'application/json' } })
-      .then(r=>r.json())
-      .then(json=>{
-        const choice = window.prompt('Nhập chỉ số (0..n), cách nhau bởi dấu phẩy:\n' + json.items.map((m,i)=> i+': '+m.original_filename).join('\n'));
-        if (choice===null) return;
-        const idxs = choice.split(',').map(s=>parseInt(s,10)).filter(n=>!isNaN(n));
-        idxs.forEach(i=>{
-          const it = json.items[i]; if (it) addGallery(it.id, it.url);
-        });
-      });
-  });
-
-  // --- Danh mục: auto tick primary nếu mới check nhiều ---
-  document.querySelectorAll('.cat-check').forEach(chk=>{
-    chk.addEventListener('change', function(){
-      if (this.checked) {
-        // nếu chưa chọn primary -> set primary = danh mục vừa tick (gần nhất)
-        const anyPrimary = document.querySelector('input.primary-radio:checked');
-        if (!anyPrimary) {
-          const radio = this.closest('.d-flex').querySelector('.primary-radio');
-          if (radio) radio.checked = true;
-        }
-      } else {
-        // nếu bỏ tick danh mục đang là primary -> xoá primary
-        const radio = this.closest('.d-flex').querySelector('.primary-radio');
-        if (radio && radio.checked) radio.checked = false;
-      }
-    });
-  });
-})();
-</script>
+</form>
