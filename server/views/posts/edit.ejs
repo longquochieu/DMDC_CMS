@@ -1,191 +1,147 @@
-<form method="post" action="<%= item ? ('/admin/posts/'+item.id+'/edit') : '/admin/posts/new' %>">
-  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-  <input type="hidden" name="gallery_media_ids" id="gallery_media_ids" value="<%= (selected.gallery_ids||[]).join(',') %>">
-  <input type="hidden" name="featured_media_id" id="featured_media_id" value="<%= item?.featured_media_id || '' %>">
-
-  <div class="row g-3">
-    <!-- LEFT -->
-    <div class="col-lg-9">
-      <% if (error) { %>
-        <div class="alert alert-danger"><%= error %></div>
-      <% } %>
-
-      <!-- Title + slug -->
-      <div class="card mb-3">
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Tiêu đề bài viết</label>
-            <input type="text" class="form-control" name="title" id="post_title" value="<%= item?.title || '' %>" required>
-          </div>
-          <div class="mb-0">
-            <label class="form-label">Đường dẫn tĩnh (slug)</label>
-            <input type="text" class="form-control" name="slug" id="post_slug" value="<%= item?.slug || '' %>" placeholder="tieu-de-bai-viet">
-            <div class="form-text">Tự động tạo khi nhập tiêu đề. Có thể chỉnh tay.</div>
-          </div>
+<div class="row">
+  <!-- Cột trái 80% -->
+  <div class="col-lg-9">
+    <!-- Tiêu đề & slug -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Tiêu đề bài viết</label>
+          <input type="text" class="form-control" name="title" value="<%= item ? (item.title||'') : '' %>" required>
         </div>
-      </div>
-
-      <!-- Content -->
-      <div class="card mb-3">
-        <div class="card-body">
-          <label class="form-label">Nội dung</label>
-          <div id="quill-editor" data-quill-editor="post" style="min-height:280px"></div>
-          <textarea name="content_html" id="content_html" class="d-none"><%- (item?.content_html || '') %></textarea>
+        <div class="mb-3">
+          <label class="form-label">Đường dẫn tĩnh</label>
+          <input type="text" class="form-control" name="slug" value="<%= item ? (item.slug||'') : '' %>">
+          <small class="text-muted">Tự sinh từ tiêu đề nếu để trống.</small>
         </div>
-      </div>
-
-      <!-- SEO (placeholder) -->
-      <div class="card mb-3">
-        <div class="card-body">
-          <h6 class="mb-3">SEO (đặt chỗ – sẽ nối vào Settings sau)</h6>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">SEO Title</label>
-              <input type="text" class="form-control" name="seo_title" value="">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">SEO Description</label>
-              <input type="text" class="form-control" name="seo_description" value="">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary">Lưu</button>
-        <a href="/admin/posts" class="btn btn-outline-secondary">Huỷ</a>
       </div>
     </div>
 
-    <!-- RIGHT -->
-    <div class="col-lg-3">
-      <!-- Cài đặt -->
-      <div class="card mb-3">
-        <div class="card-header fw-semibold">Cài đặt bài viết</div>
-        <div class="card-body">
-          <!-- Status -->
-          <div class="mb-3">
-            <label class="form-label">
-              Trạng thái
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Draft: nháp, Pending: chờ duyệt, Scheduled: lên lịch, Published: xuất bản"></i>
-            </label>
-            <select class="form-select" name="status" id="post_status">
-              <option value="draft" <%= item?.status==='draft'?'selected':'' %>>Nháp</option>
-              <option value="pending" <%= item?.status==='pending'?'selected':'' %>>Chờ duyệt</option>
-              <option value="scheduled" <%= item?.status==='scheduled'?'selected':'' %>>Lên lịch</option>
-              <option value="published" <%= item?.status==='published'?'selected':'' %>>Xuất bản</option>
-            </select>
-          </div>
+    <!-- Nội dung -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label">Nội dung</label>
+        <div data-quill-editor style="min-height:280px;"></div>
+        <textarea name="content_html" hidden><%= item ? (item.content_html || '') : '' %></textarea>
+      </div>
+    </div>
 
-          <!-- Lên lịch -->
-          <div class="mb-3">
-            <label class="form-label">
-              Lên lịch đăng
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn thời điểm tương lai để tự động đăng bài."></i>
-            </label>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="schedule_enable" name="schedule_enable" value="1" <%= (item?.status==='scheduled' || item?.scheduled_at)?'checked':'' %>>
-              <label class="form-check-label" for="schedule_enable">Bật</label>
-            </div>
-            <input type="datetime-local" class="form-control mt-2" id="scheduled_at" name="scheduled_at" value="<%= item?.scheduled_at ? new Date(item.scheduled_at).toISOString().slice(0,16) : '' %>" <%= (item?.status==='scheduled' || item?.scheduled_at)?'':'disabled' %>>
-            <div class="form-text">Phải là thời điểm trong tương lai.</div>
+    <!-- SEO (placeholder) -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="mb-3">SEO</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Meta title</label>
+            <input type="text" class="form-control" name="seo_title" value="">
           </div>
-
-          <!-- Date -->
-          <div class="mb-3">
-            <label class="form-label">
-              Ngày hiển thị
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Giá trị hiển thị trên FE (không ảnh hưởng ngày tạo)."></i>
-            </label>
-            <input type="date" class="form-control" name="display_date" value="<%= ui.display_date %>">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Ngày tạo</label>
-            <input type="text" class="form-control" value="<%= ui.created_at ? new Date(ui.created_at).toLocaleString('vi-VN') : '' %>" disabled>
-          </div>
-
-          <!-- Ảnh đại diện -->
-          <div class="mb-3">
-            <label class="form-label">
-              Ảnh đại diện
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Tải ảnh hoặc chọn ảnh có sẵn."></i>
-            </label>
-            <div class="mb-2">
-              <img id="featured_preview" src="<%= item?.featured_url || '' %>" class="img-fluid border <%= item?.featured_url?'':'d-none' %>" style="max-height:160px;object-fit:cover">
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-upload-featured">Tải ảnh</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pick-featured">Chọn ảnh</button>
-            </div>
-          </div>
-
-          <!-- Danh mục -->
-          <div class="mb-3">
-            <label class="form-label">
-              Danh mục
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn) trong số danh mục đã chọn."></i>
-            </label>
-
-            <div class="list-group border">
-              <% (categories||[]).forEach(c => { %>
-                <label class="list-group-item">
-                  <div class="d-flex align-items-center">
-                    <input class="form-check-input me-2" type="checkbox" name="category_ids" value="<%= c.id %>" <%= (selected.category_ids||[]).includes(c.id)?'checked':'' %> >
-                    <span style="padding-left:<%= c.depth*16 %>px"><%= c.title || ('#'+c.id) %></span>
-                    <div class="ms-auto">
-                      <input class="form-check-input" type="radio" name="primary_category_id" value="<%= c.id %>" <%= (selected.primary_category_id===c.id)?'checked':'' %> >
-                    </div>
-                  </div>
-                </label>
-              <% }) %>
-            </div>
-          </div>
-
-          <!-- Gallery -->
-          <div class="mb-3">
-            <label class="form-label">
-              Thư viện ảnh (gallery)
-              <i class="fas fa-circle-question text-muted" data-bs-toggle="tooltip" title="Chọn nhiều ảnh hoặc tải từ máy tính."></i>
-            </label>
-            <div id="gallery-preview" class="d-flex flex-wrap gap-2 mb-2">
-              <% (selected.gallery_ids||[]).forEach(id => { %>
-                <img data-id="<%= id %>" src="/uploads/_byid/<%= id %>" class="border" style="height:70px;object-fit:cover">
-              <% }) %>
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-upload-gallery">Tải ảnh</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pick-gallery">Chọn ảnh</button>
-            </div>
+          <div class="col-md-6">
+            <label class="form-label">Meta description</label>
+            <input type="text" class="form-control" name="seo_description" value="">
           </div>
         </div>
       </div>
     </div>
-    <!-- /RIGHT -->
+
+    <div class="mb-4">
+      <button class="btn btn-primary">Lưu</button>
+      <a href="/admin/posts" class="btn btn-outline-secondary">Hủy</a>
+    </div>
   </div>
-</form>
+
+  <!-- Cột phải 20% -->
+  <div class="col-lg-3">
+    <!-- Trạng thái + Lịch đăng -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label">Trạng thái</label>
+        <select class="form-select" name="status" id="statusSelect">
+          <% const st = item ? item.status : 'draft'; %>
+          <option value="draft"     <%= st==='draft' ? 'selected' : '' %>>Nháp</option>
+          <option value="pending"   <%= st==='pending' ? 'selected' : '' %>>Chờ duyệt</option>
+          <option value="scheduled" <%= st==='scheduled' ? 'selected' : '' %>>Lên lịch</option>
+          <option value="published" <%= st==='published' ? 'selected' : '' %>>Xuất bản</option>
+          <option value="private"   <%= st==='private' ? 'selected' : '' %>>Riêng tư</option>
+        </select>
+
+        <div id="scheduleWrap" class="mt-3" style="<%= st==='scheduled' ? '' : 'display:none' %>">
+          <label class="form-label">Thời điểm đăng (dd/MM/yyyy HH:mm)</label>
+          <input type="text" class="form-control" name="scheduled_at_local"
+                 value="<%= scheduled_at_local || '' %>" placeholder="31/10/2025 14:30">
+          <small class="text-muted">Chỉ áp dụng khi trạng thái là “Lên lịch”.</small>
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Ngày tạo</label>
+          <input type="text" class="form-control" value="<%= created_at_local || '' %>" readonly>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ảnh đại diện -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label">Ảnh đại diện</label>
+        <div class="d-flex gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-upload-featured>Tải ảnh</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Sắp có">Chọn ảnh</button>
+        </div>
+        <input type="hidden" name="featured_url" value="<%= item ? (item.featured_url||'') : '' %>">
+        <div id="featuredPreview">
+          <% if (item && item.featured_url){ %>
+            <img src="<%= item.featured_url %>" class="img-fluid border">
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh mục -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label d-flex align-items-center">
+          Danh mục
+          <span class="ms-2" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn) trong số danh mục đã chọn.">?</span>
+        </label>
+
+        <div class="border rounded p-2" style="max-height:260px; overflow:auto;">
+          <% (categories||[]).forEach(c => {
+               const checked = (selectedCategoryIds||[]).map(String).includes(String(c.id));
+               const primary = String(primaryCategoryId||'') === String(c.id);
+          %>
+            <div class="d-flex align-items-center py-1">
+              <div style="width:<%= c.depth*16 %>px"></div>
+              <input class="form-check-input me-2" type="checkbox" name="selected_categories" value="<%= c.id %>" <%= checked ? 'checked' : '' %> >
+              <label class="form-check-label flex-grow-1"><%= c.name %></label>
+              <input class="form-check-input ms-2" type="radio" name="primary_category_id" value="<%= c.id %>" <%= primary ? 'checked' : '' %> title="Danh mục chính">
+            </div>
+          <% }) %>
+        </div>
+        <small class="text-muted">Nếu không chọn danh mục chính, hệ thống sẽ lấy danh mục chọn gần nhất làm chính.</small>
+      </div>
+    </div>
+
+    <!-- Thư viện ảnh (gallery) -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label">Thư viện ảnh</label>
+        <div class="d-flex gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-upload-gallery>Tải ảnh</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Sắp có">Chọn ảnh</button>
+        </div>
+        <div id="galleryPreview" class="d-flex flex-wrap gap-2"></div>
+        <input type="hidden" name="gallery_json" value="">
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
-  // slug auto
+  // Ẩn/hiện lịch theo trạng thái
   (function(){
-    const title = document.getElementById('post_title');
-    const slug  = document.getElementById('post_slug');
-    if (title && slug && !slug.value) {
-      title.addEventListener('input', function(){
-        const v = (this.value||'')
-          .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .toLowerCase().replace(/[^a-z0-9\s\-]/g,'').trim().replace(/\s+/g,'-');
-        slug.value = v;
-      });
-    }
-  })();
-
-  // schedule toggle
-  (function(){
-    const sw = document.getElementById('schedule_enable');
-    const dt = document.getElementById('scheduled_at');
-    if (sw && dt) {
-      sw.addEventListener('change', ()=> {
-        dt.disabled = !sw.checked;
+    var sel = document.getElementById('statusSelect');
+    var wrap = document.getElementById('scheduleWrap');
+    if (sel && wrap){
+      sel.addEventListener('change', function(){
+        wrap.style.display = (this.value === 'scheduled') ? '' : 'none';
       });
     }
   })();

@@ -113,7 +113,8 @@ app.use("/admin/trash", trashRoutes);
 app.use("/admin/search", searchRoutes);
 
 // Cron
-cron.schedule("*/5 * * * *", async () => { try { await runSchedulerTick(); } catch {} });
+//cron.schedule("*/5 * * * *", async () => { try { await runSchedulerTick(); } catch {} });
+cron.schedule("* * * * *",  async () => { try { await runSchedulerTick(); } catch {} });
 cron.schedule("0 2 * * *",  async () => { try { await purgeTrash(); } catch {} });
 
 const PORT = process.env.APP_PORT || 5000;

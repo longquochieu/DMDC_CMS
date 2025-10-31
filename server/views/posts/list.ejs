@@ -1,82 +1,63 @@
+<!-- server/views/posts/list.ejs -->
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 m-0">Bài viết</h1>
-  <a href="/admin/posts/new" class="btn btn-primary btn-sm">Tạo bài viết mới</a>
+  <a href="/admin/posts/new" class="btn btn-primary btn-sm">+ Tạo bài viết mới</a>
 </div>
 
 <div class="card">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-striped m-0 align-middle">
-        <thead class="table-light">
+  <div class="card-body table-responsive p-0">
+    <table class="table table-striped mb-0">
+      <thead>
+        <tr>
+          <th>Ảnh</th>
+          <th>
+            <a href="?sort=title&dir=<%= (sort==='title' && dir==='asc') ? 'desc' : 'asc' %>">
+              Tiêu đề bài viết
+            </a>
+          </th>
+          <th>Đường dẫn tĩnh</th>
+          <th>Danh mục</th>
+          <th>Tag</th>
+          <th>Tác giả</th>
+          <th>Trạng thái</th>
+          <th>
+            <a href="?sort=scheduled_at&dir=<%= (sort==='scheduled_at' && dir==='asc') ? 'desc' : 'asc' %>">
+              Lên lịch
+            </a>
+          </th>
+          <th>
+            <a href="?sort=created_at&dir=<%= (sort==='created_at' && dir==='asc') ? 'desc' : 'asc' %>">
+              Ngày tạo
+            </a>
+          </th>
+          <th class="text-end">Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(r => { %>
           <tr>
-            <th style="width:70px">Ảnh</th>
-            <th>
-              <a href="?sort=title&dir=<%= (sort==='title' && dir==='asc') ? 'desc' : 'asc' %>">
-                Tiêu đề bài viết
-              </a>
-            </th>
-            <th>Danh mục</th>
-            <th>
-              <a href="?sort=author&dir=<%= (sort==='author' && dir==='asc') ? 'desc' : 'asc' %>">
-                Người tạo
-              </a>
-            </th>
-            <th>
-              <a href="?sort=status&dir=<%= (sort==='status' && dir==='asc') ? 'desc' : 'asc' %>">
-                Trạng thái
-              </a>
-            </th>
-            <th>
-              <a href="?sort=created_at&dir=<%= (sort==='created_at' && dir==='asc') ? 'desc' : 'asc' %>">
-                Ngày tạo
-              </a>
-            </th>
-            <th>
-              <a href="?sort=scheduled_at&dir=<%= (sort==='scheduled_at' && dir==='asc') ? 'desc' : 'asc' %>">
-                Thời điểm đăng
-              </a>
-            </th>
-            <th style="width:110px">Hành động</th>
+            <td style="width:64px">
+              <!-- Nếu bạn có thumbnail thì render ở đây, tạm để icon -->
+              <div class="bg-light border rounded" style="width:56px;height:40px;"></div>
+            </td>
+            <td><strong><%= r.title || '(Không tiêu đề)' %></strong></td>
+            <td><code><%= r.slug || '' %></code></td>
+            <td><%= r.categories_text || '' %></td>
+            <td><%= r.tags_text || '' %></td>
+            <td><%= r.author || '' %></td>
+            <td class="text-capitalize"><%= r.status %></td>
+            <td><%= r.scheduled_at_fmt || '' %></td>
+            <td><%= r.created_at_fmt || '' %></td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="/admin/posts/<%= r.id %>/edit">Sửa</a>
+              <form action="/admin/posts/<%= r.id %>/trash" method="post" class="d-inline" onsubmit="return confirm('Chuyển bài viết vào Thùng rác?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-sm btn-outline-danger">Xoá</button>
+              </form>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          <% if (!items || !items.length) { %>
-            <tr><td colspan="8" class="text-center text-muted py-4">Chưa có bài viết.</td></tr>
-          <% } %>
-
-          <% (items||[]).forEach(it => { %>
-            <tr>
-              <td>
-                <% if (it.featured_url) { %>
-                  <img src="<%= it.featured_url %>" class="img-thumbnail" style="width:60px;height:40px;object-fit:cover">
-                <% } else { %>
-                  <div class="bg-light border text-center" style="width:60px;height:40px;line-height:40px;">—</div>
-                <% } %>
-              </td>
-              <td>
-                <div class="fw-semibold"><a href="/admin/posts/<%= it.id %>/edit"><%= it.title || '(Không tiêu đề)' %></a></div>
-                <div class="text-muted small">/<%= it.slug || '' %></div>
-              </td>
-              <td><small><%= (it.categories||[]).join(', ') %></small></td>
-              <td><small><%= it.author || '' %></small></td>
-              <td>
-                <span class="badge text-bg-<%= it.status==='published' ? 'success' : it.status==='scheduled' ? 'info' : it.status==='pending' ? 'warning' : 'secondary' %>">
-                  <%= it.status %>
-                </span>
-              </td>
-              <td><small><%= it.created_at ? new Date(it.created_at).toLocaleString('vi-VN') : '' %></small></td>
-              <td><small><%= it.scheduled_at ? new Date(it.scheduled_at).toLocaleString('vi-VN') : '—' %></small></td>
-              <td>
-                <a href="/admin/posts/<%= it.id %>/edit" class="btn btn-sm btn-outline-primary">Sửa</a>
-                <form class="d-inline" method="post" action="/admin/posts/<%= it.id %>/trash" onsubmit="return confirm('Chuyển vào thùng rác?')">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <button class="btn btn-sm btn-outline-danger">Xoá</button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+        <% }) %>
+      </tbody>
+    </table>
   </div>
 </div>
