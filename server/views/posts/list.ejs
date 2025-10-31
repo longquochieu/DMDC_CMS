@@ -12,6 +12,9 @@
           <th>
             <a href="?sort=title&dir=<%= sort==='title' && dir==='asc' ? 'desc' : 'asc' %>">Tiêu đề bài viết</a>
           </th>
+          <th style="width:200px">
+            <a href="?sort=slug&dir=<%= sort==='slug' && dir==='asc' ? 'desc' : 'asc' %>">Đường dẫn tĩnh</a>
+          </th>
           <th>Danh mục</th>
           <th>Tag</th>
           <th>Tác giả</th>
@@ -26,7 +29,7 @@
       </thead>
       <tbody>
         <% if (!items.length) { %>
-          <tr><td colspan="8" class="text-center text-muted py-4">Chưa có bài viết</td></tr>
+          <tr><td colspan="9" class="text-center text-muted py-4">Chưa có bài viết</td></tr>
         <% } %>
         <% items.forEach(p => { %>
           <tr>
@@ -38,6 +41,7 @@
               <% } %>
             </td>
             <td><a href="/admin/posts/<%= p.id %>/edit"><%= p.title || '(không tiêu đề)' %></a></td>
+            <td class="text-muted"><%= p.slug || '' %></td>
             <td><%= p.categories || '' %></td>
             <td><%= p.tags || '' %></td>
             <td><%= p.author || '' %></td>

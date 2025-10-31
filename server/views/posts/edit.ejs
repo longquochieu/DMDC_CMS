@@ -1,33 +1,42 @@
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+<% if (warn) { %>
+  <div class="alert alert-warning"><%= warn %></div>
+<% } %>
+
 <form method="post" action="<%= item ? '/admin/posts/' + item.id + '/edit' : '/admin/posts/new' %>">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
   <div class="row g-3">
-    <!-- LEFT 80% -->
+    <!-- LEFT -->
     <div class="col-lg-9">
-      <!-- Tiêu đề + Slug -->
       <div class="card mb-3">
         <div class="card-body">
           <div class="mb-3">
-            <label class="form-label">Tiêu đề trang</label>
-            <input class="form-control" name="title" value="<%= item?.title || '' %>" required>
+            <label class="form-label">Tiêu đề bài viết</label>
+            <input class="form-control" name="title" id="titleInput" value="<%= item?.title || '' %>" required>
+            <div class="form-text">Nhập tiêu đề, “Đường dẫn tĩnh” sẽ tự tạo theo tiêu đề.</div>
           </div>
+
           <div class="mb-3">
-            <label class="form-label">Slug</label>
-            <input class="form-control" name="slug" value="<%= item?.slug || '' %>" placeholder="Tự tạo theo tiêu đề nếu bỏ trống">
+            <label class="form-label">Đường dẫn tĩnh
+              <span class="text-muted" data-bs-toggle="tooltip" title="Dùng cho URL bài viết. Có thể sửa thủ công.">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
+            <input class="form-control" name="slug" id="slugInput" value="<%= item?.slug || '' %>" placeholder="Tự tạo theo tiêu đề nếu bỏ trống">
+            <div class="small text-muted mt-1">URL xem trước: /<span id="slugPreview"><%= item?.slug || '' %></span></div>
           </div>
         </div>
       </div>
 
-      <!-- Nội dung (Quill) -->
+      <!-- Nội dung -->
       <div class="card mb-3">
         <div class="card-body">
           <label class="form-label">Nội dung</label>
           <input type="hidden" name="content_html" id="content_html" value="<%- (item?.content_html || '').replace(/<\/?script/gi,'') %>">
-          <div id="editor" data-quill-editor style="min-height:280px"></div>
-          <div class="mt-2 d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="insertImage">Chèn ảnh…</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="insertVideo">Chèn video (YouTube)…</button>
-          </div>
+          <div id="editor" data-quill-editor style="min-height:320px"></div>
         </div>
       </div>
 
@@ -36,26 +45,19 @@
         <div class="card-header"><strong>SEO (đặt chỗ)</strong></div>
         <div class="card-body">
           <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">SEO Title (demo)</label>
-              <input class="form-control" disabled placeholder="Sẽ bổ sung sau">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">SEO Description (demo)</label>
-              <input class="form-control" disabled placeholder="Sẽ bổ sung sau">
-            </div>
+            <div class="col-md-6"><input class="form-control" disabled placeholder="SEO Title…"></div>
+            <div class="col-md-6"><input class="form-control" disabled placeholder="SEO Description…"></div>
           </div>
         </div>
       </div>
 
-      <!-- Lưu / Huỷ -->
       <div class="d-flex gap-2 mb-3">
         <button class="btn btn-primary">Lưu</button>
         <a class="btn btn-outline-secondary" href="/admin/posts">Huỷ</a>
       </div>
     </div>
 
-    <!-- RIGHT 20% -->
+    <!-- RIGHT -->
     <div class="col-lg-3">
       <div class="card mb-3">
         <div class="card-header"><strong>Cài đặt trang</strong></div>
@@ -63,10 +65,10 @@
           <!-- Trạng thái -->
           <div class="mb-3">
             <label class="form-label">Trạng thái</label>
-            <select class="form-select" name="status">
-              <% const st = (item?.status || 'draft'); %>
-              <option value="draft" <%= st==='draft'?'selected':'' %>>Nháp</option>
-              <option value="pending" <%= st==='pending'?'selected':'' %>>Chờ duyệt</option>
+            <% const st = (item?.status || 'draft'); %>
+            <select class="form-select" name="status" id="statusSelect">
+              <option value="draft"     <%= st==='draft'?'selected':'' %>>Nháp</option>
+              <option value="pending"   <%= st==='pending'?'selected':'' %>>Chờ duyệt</option>
               <option value="scheduled" <%= st==='scheduled'?'selected':'' %> <%= !perms.canSchedule?'disabled':'' %>>Lên lịch</option>
               <option value="published" <%= st==='published'?'selected':'' %>>Xuất bản</option>
             </select>
@@ -75,31 +77,45 @@
             <% } %>
           </div>
 
-          <!-- Đặt lịch đăng -->
+          <!-- Lịch đăng -->
           <div class="mb-3">
-            <label class="form-label">Thời điểm đăng (nếu trạng thái = Lên lịch)</label>
-            <input type="datetime-local" class="form-control" name="scheduled_at"
-              value="<%= (item?.scheduled_at||'').replace(' ','T') %>"
-              <%= !perms.canSchedule?'disabled':'' %>>
+            <label class="form-label">
+              Thời điểm đăng
+              <span class="text-muted" data-bs-toggle="tooltip" title="Bắt buộc chọn tương lai nếu trạng thái = Lên lịch.">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
+            <input type="datetime-local" class="form-control" name="scheduled_at" id="scheduledAt"
+                   value="<%= (item?.scheduled_at||'').replace(' ','T') %>" <%= !perms.canSchedule?'disabled':'' %>>
           </div>
 
-          <!-- Ngày hiển thị (Date_Visible) -->
+          <!-- Ngày hiển thị -->
           <div class="mb-3">
-            <label class="form-label">Ngày hiển thị (Date_Visible)</label>
+            <label class="form-label">
+              Ngày hiển thị (Date_Visible)
+              <span class="text-muted" data-bs-toggle="tooltip" title="Chỉ là giá trị dùng để render ngoài site.">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
             <input type="date" class="form-control" name="display_date"
                    value="<%= item?.display_date || (new Date().toISOString().slice(0,10)) %>">
           </div>
 
-          <!-- Ngày tạo (read-only) -->
+          <!-- Ngày tạo -->
           <div class="mb-3">
             <label class="form-label">Ngày tạo</label>
             <input class="form-control" value="<%= item?.created_at || new Date().toISOString() %>" readonly>
-            <div class="form-text">Định dạng hiển thị mặc định: DD/MM/YYYY HH:mm</div>
+            <div class="form-text">Mặc định hiển thị DD/MM/YYYY HH:mm (có thể đổi trong Cài đặt sau).</div>
           </div>
 
           <!-- Ảnh đại diện -->
           <div class="mb-3">
-            <label class="form-label d-block">Ảnh đại diện</label>
+            <label class="form-label d-block">
+              Ảnh đại diện
+              <span class="text-muted" data-bs-toggle="tooltip" title="Tải từ máy hoặc chọn từ thư viện.">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
             <input type="hidden" name="featured_media_id" id="featured_media_id" value="<%= featured?.id || '' %>">
             <div id="featuredPreview" class="mb-2">
               <% if (featured?.url) { %>
@@ -116,28 +132,32 @@
 
           <!-- Danh mục -->
           <div class="mb-3">
-            <label class="form-label d-block">Danh mục</label>
-            <div class="border rounded p-2" style="max-height:240px; overflow:auto">
-              <% const selSet = new Set(selectedCategoryIds || []); %>
+            <label class="form-label d-block">
+              Danh mục
+              <span class="text-muted" data-bs-toggle="tooltip" title="Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn).">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
+            <div class="border rounded p-2" style="max-height:260px; overflow:auto">
+              <% const selSet = new Set((selectedCategoryIds||[]).map(String)); %>
               <% categories.forEach(c => { %>
-                <div class="d-flex align-items-center">
-                  <div style="width:<%= c.depth*16 %>px"></div>
+                <div class="d-flex align-items-center py-1 border-bottom" style="--indent:<%= c.depth*16 %>px">
+                  <div style="width:var(--indent)"></div>
                   <div class="form-check me-2">
                     <input class="form-check-input cat-check" type="checkbox" value="<%= c.id %>" name="category_ids"
-                      id="cat_<%= c.id %>" <%= selSet.has(String(c.id))?'checked':'' %>>
+                           id="cat_<%= c.id %>" <%= selSet.has(String(c.id))?'checked':'' %>>
                     <label class="form-check-label" for="cat_<%= c.id %>"><%= c.name || ('#'+c.id) %></label>
                   </div>
                   <div class="form-check ms-auto">
                     <input class="form-check-input cat-primary" type="radio" name="primary_category_id"
-                      value="<%= c.id %>" <%= String(primaryCategoryId||'')===String(c.id)?'checked':'' %>>
+                           value="<%= c.id %>" <%= String(primaryCategoryId||'')===String(c.id)?'checked':'' %>>
                   </div>
                 </div>
               <% }) %>
-              <div class="form-text">Chọn nhiều danh mục (checkbox). Chọn 1 danh mục chính (chấm tròn) trong số danh mục đã chọn.</div>
             </div>
           </div>
 
-          <!-- Tag (CSV) -->
+          <!-- Tag -->
           <div class="mb-3">
             <label class="form-label">Tag (phân cách bằng dấu phẩy)</label>
             <input class="form-control" name="tags" value="<%= (tags||[]).join(', ') %>">
@@ -145,7 +165,12 @@
 
           <!-- Gallery -->
           <div class="mb-3">
-            <label class="form-label d-block">Gallery ảnh</label>
+            <label class="form-label d-block">
+              Gallery ảnh
+              <span class="text-muted" data-bs-toggle="tooltip" title="Chọn nhiều ảnh từ thư viện hoặc tải nhiều ảnh.">
+                <i class="fas fa-question-circle"></i>
+              </span>
+            </label>
             <input type="hidden" name="gallery_media_ids" id="gallery_media_ids" value="<%= (gallery||[]).map(g=>g.id).join(',') %>">
             <div id="galleryPreview" class="d-flex flex-wrap gap-2 mb-2">
               <% (gallery||[]).forEach(g => { %>
@@ -166,82 +191,69 @@
 
 <script>
 (function(){
-  // ---- Quill ----
+  // Bootstrap tooltip
+  const t = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  t.forEach(el => new bootstrap.Tooltip(el));
+
+  // Slug live-update theo tiêu đề (chỉ khi người dùng chưa sửa tay)
+  const titleEl = document.getElementById('titleInput');
+  const slugEl  = document.getElementById('slugInput');
+  const slugPrev = document.getElementById('slugPreview');
+  let slugTouched = !!(slugEl.value && slugEl.value.trim().length);
+  slugEl.addEventListener('input', ()=>{ slugTouched = true; slugPrev.textContent = slugEl.value.trim(); });
+  function vnSlugify(s){
+    return (s||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').replace(/-+/g,'-');
+  }
+  titleEl.addEventListener('input', ()=>{
+    if (!slugTouched) {
+      const v = vnSlugify(titleEl.value);
+      slugEl.value = v; slugPrev.textContent = v;
+    }
+  });
+
+  // Quill
   const hidden = document.getElementById('content_html');
   const holder = document.getElementById('editor');
   if (holder) {
     const quill = new Quill(holder, {
       theme: 'snow',
-      modules: {
-        toolbar: [
-          [{ 'header': [2,3,4,false] }],
-          ['bold','italic','underline','strike'],
-          [{ 'align': [] }],
-          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-          ['link','blockquote','code'],
-          ['clean'],
-          ['image','video']
-        ]
-      }
+      modules: { toolbar: [
+        [{ 'header': [2,3,4,false] }],
+        ['bold','italic','underline','strike'],
+        [{ 'align': [] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link','blockquote','code','image','video'],
+        ['clean']
+      ]}
     });
-    // set initial
     if (hidden.value) { const div=document.createElement('div'); div.innerHTML=hidden.value; quill.root.innerHTML=div.innerHTML; }
-    holder.closest('form').addEventListener('submit', function(){ hidden.value = quill.root.innerHTML; });
-
-    // insert helpers
-    document.getElementById('insertImage')?.addEventListener('click', async function(){
-      const url = await pickOneImage();
-      if (!url) return;
-      const range = quill.getSelection(true) || { index: quill.getLength() };
-      quill.insertEmbed(range.index, 'image', url, Quill.sources.USER);
-    });
-    document.getElementById('insertVideo')?.addEventListener('click', function(){
-      const link = prompt('Dán URL YouTube:');
-      if (!link) return;
-      const range = quill.getSelection(true) || { index: quill.getLength() };
-      quill.insertEmbed(range.index, 'video', link, Quill.sources.USER);
+    holder.closest('form').addEventListener('submit', function(){
+      hidden.value = quill.root.innerHTML;
     });
   }
 
-  // ---- CSRF meta ----
+  // CSRF helper
   function getCsrf(){
-    const m = document.querySelector('meta[name="csrf-token"]');
-    return m ? m.content : '';
+    const m = document.querySelector('meta[name="csrf-token"]'); return m?m.content:'';
   }
 
-  // ---- Media pickers (placeholder: list -> prompt index) ----
+  // Media helpers
   async function listMedia(){
     const r = await fetch('/admin/media/list', { headers: { Accept:'application/json' } });
-    if (!r.ok) throw new Error('Không đọc được danh sách media');
-    return r.json(); // { items: [{id,url,original_filename,mime_type}, ...] }
+    if (!r.ok) throw new Error('Không đọc được danh sách media'); return r.json();
   }
   async function uploadOne(file){
     const fd = new FormData(); fd.append('file', file);
     const r = await fetch('/admin/media/upload', { method:'POST', body: fd, headers:{ 'CSRF-Token': getCsrf() }});
-    if (!r.ok) throw new Error('Upload thất bại');
-    return r.json(); // { id, url }
-  }
-  async function pickOneImage(){
-    const json = await listMedia();
-    const choice = prompt('Chọn số thứ tự ảnh:\n' + json.items.map((m,i)=> `${i}: ${m.original_filename}`).join('\n'));
-    if (choice === null) return null;
-    const i = parseInt(choice, 10);
-    if (Number.isNaN(i) || i<0 || i>=json.items.length) return null;
-    return json.items[i].url;
-  }
-  async function pickManyImages(){
-    const json = await listMedia();
-    const choice = prompt('Nhập danh sách chỉ số, ví dụ: 0,2,5');
-    if (choice === null) return [];
-    const ids = [];
-    choice.split(',').map(s=>s.trim()).forEach(idx=>{
-      const i = parseInt(idx,10);
-      if (!Number.isNaN(i) && i>=0 && i<json.items.length) ids.push(json.items[i].id);
-    });
-    return json.items.filter((_,i)=>ids.includes(i)).map(m=>({id:m.id,url:m.url}));
+    if (!r.ok) { const t = await r.text(); throw new Error('Upload thất bại: ' + t); }
+    return r.json();
   }
 
-  // ---- Featured ----
+  // Featured
   const featuredId = document.getElementById('featured_media_id');
   const featuredPreview = document.getElementById('featuredPreview');
   document.getElementById('btnPickFeatured')?.addEventListener('click', async function(){
@@ -256,29 +268,24 @@
   document.getElementById('btnUploadFeatured')?.addEventListener('click', async function(){
     const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
     inp.onchange = async () => {
-      const f = inp.files[0]; if (!f) return;
-      const info = await uploadOne(f);
+      if (!inp.files[0]) return;
+      const info = await uploadOne(inp.files[0]);
       featuredId.value = info.id;
       featuredPreview.innerHTML = `<img src="${info.url}" style="width:100%;max-height:160px;object-fit:cover" class="border rounded">`;
     };
     inp.click();
   });
 
-  // ---- Gallery ----
+  // Gallery
   const galHidden = document.getElementById('gallery_media_ids');
   const galPreview = document.getElementById('galleryPreview');
-
-  function syncGalleryHidden(arr){
-    galHidden.value = arr.map(x=>x.id).join(',');
-  }
-  function currentGallery(){
-    const ids = (galHidden.value||'').split(',').filter(Boolean).map(x=>({id:x}));
-    // preview is not source of truth; keep hidden string only.
-    return ids;
-  }
+  function syncGalleryHidden(arr){ galHidden.value = arr.map(x=>x.id).join(','); }
   document.getElementById('btnPickGallery')?.addEventListener('click', async function(){
-    const picked = await pickManyImages();
-    if (!picked.length) return;
+    const json = await listMedia();
+    const choice = prompt('Nhập danh sách chỉ số, ví dụ: 0,2,5');
+    if (choice === null) return;
+    const idx = choice.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!Number.isNaN(n)&&n>=0&&n<json.items.length);
+    const picked = idx.map(i => ({ id: json.items[i].id, url: json.items[i].url }));
     syncGalleryHidden(picked);
     galPreview.innerHTML = picked.map(p=>`<img src="${p.url}" style="height:70px" class="border rounded">`).join('');
   });
@@ -286,28 +293,53 @@
     const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple = true;
     inp.onchange = async () => {
       const out = [];
-      for (const f of inp.files) {
-        const info = await uploadOne(f);
-        out.push(info);
-      }
+      for (const f of inp.files) { out.push(await uploadOne(f)); }
       syncGalleryHidden(out);
       galPreview.innerHTML = out.map(p=>`<img src="${p.url}" style="height:70px" class="border rounded">`).join('');
     };
     inp.click();
   });
 
-  // ---- Categories: primary must belong to checked ----
+  // Category primary rule
   const catChecks = Array.from(document.querySelectorAll('.cat-check'));
   const catPrimary = Array.from(document.querySelectorAll('.cat-primary'));
   function enforcePrimaryRule(){
-    const checked = new Set(catChecks.filter(c=>c.checked).map(c=>c.value));
+    const checked = new Set(catChecks.filter(c=>c.checked).map(c=>String(c.value)));
     catPrimary.forEach(radio=>{
-      radio.disabled = !checked.has(radio.value);
-      if (radio.disabled && radio.checked) radio.checked = false;
+      const enable = checked.has(String(radio.value));
+      radio.disabled = !enable;
+      if (!enable && radio.checked) radio.checked = false;
     });
   }
   catChecks.forEach(c => c.addEventListener('change', enforcePrimaryRule));
   enforcePrimaryRule();
 
+  // Client-side validations on submit
+  const form = document.querySelector('form');
+  form.addEventListener('submit', function(ev){
+    const checked = catChecks.filter(c=>c.checked).map(c=>Number(c.value));
+    if (checked.length === 0) {
+      ev.preventDefault(); alert('Bạn chưa chọn danh mục, vui lòng chọn.');
+      return;
+    }
+    const primary = catPrimary.find(r=>r.checked);
+    if (checked.length > 1 && !primary) {
+      // auto-choose max id
+      const maxId = Math.max(...checked);
+      const radio = catPrimary.find(r=>Number(r.value)===maxId);
+      if (radio) radio.checked = true;
+      alert('Bạn chưa chọn danh mục chính, hệ thống tự chọn danh mục có ID ' + maxId + ' làm danh mục chính.');
+    }
+
+    // scheduled must be future
+    const status = document.getElementById('statusSelect')?.value;
+    const sch = document.getElementById('scheduledAt')?.value;
+    if (status === 'scheduled') {
+      if (!sch || new Date(sch).getTime() <= Date.now()) {
+        ev.preventDefault(); alert('Vui lòng chọn thời điểm đăng trong tương lai cho trạng thái Lên lịch.');
+        return;
+      }
+    }
+  });
 })();
 </script>
