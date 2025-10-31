@@ -1,5 +1,3 @@
-<% layout('layout') %>
-
 <form method="post" action="<%= item ? ('/admin/posts/' + item.id + '/edit') : '/admin/posts/new' %>">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
