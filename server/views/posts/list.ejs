@@ -1,63 +1,71 @@
-<!-- server/views/posts/list.ejs -->
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 m-0">Bài viết</h1>
-  <a href="/admin/posts/new" class="btn btn-primary btn-sm">+ Tạo bài viết mới</a>
+  <a class="btn btn-primary" href="/admin/posts/new">+ Tạo bài viết mới</a>
 </div>
 
 <div class="card">
-  <div class="card-body table-responsive p-0">
-    <table class="table table-striped mb-0">
-      <thead>
-        <tr>
-          <th>Ảnh</th>
-          <th>
-            <a href="?sort=title&dir=<%= (sort==='title' && dir==='asc') ? 'desc' : 'asc' %>">
-              Tiêu đề bài viết
-            </a>
-          </th>
-          <th>Đường dẫn tĩnh</th>
-          <th>Danh mục</th>
-          <th>Tag</th>
-          <th>Tác giả</th>
-          <th>Trạng thái</th>
-          <th>
-            <a href="?sort=scheduled_at&dir=<%= (sort==='scheduled_at' && dir==='asc') ? 'desc' : 'asc' %>">
-              Lên lịch
-            </a>
-          </th>
-          <th>
-            <a href="?sort=created_at&dir=<%= (sort==='created_at' && dir==='asc') ? 'desc' : 'asc' %>">
-              Ngày tạo
-            </a>
-          </th>
-          <th class="text-end">Hành động</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% rows.forEach(r => { %>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
           <tr>
-            <td style="width:64px">
-              <!-- Nếu bạn có thumbnail thì render ở đây, tạm để icon -->
-              <div class="bg-light border rounded" style="width:56px;height:40px;"></div>
-            </td>
-            <td><strong><%= r.title || '(Không tiêu đề)' %></strong></td>
-            <td><code><%= r.slug || '' %></code></td>
-            <td><%= r.categories_text || '' %></td>
-            <td><%= r.tags_text || '' %></td>
-            <td><%= r.author || '' %></td>
-            <td class="text-capitalize"><%= r.status %></td>
-            <td><%= r.scheduled_at_fmt || '' %></td>
-            <td><%= r.created_at_fmt || '' %></td>
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-primary" href="/admin/posts/<%= r.id %>/edit">Sửa</a>
-              <form action="/admin/posts/<%= r.id %>/trash" method="post" class="d-inline" onsubmit="return confirm('Chuyển bài viết vào Thùng rác?')">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button class="btn btn-sm btn-outline-danger">Xoá</button>
-              </form>
-            </td>
+            <th style="width:72px">Ảnh</th>
+            <th>
+              <a href="?sort=title&dir=<%= (sort==='title' && dir==='asc') ? 'desc':'asc' %>">Tiêu đề bài viết</a>
+            </th>
+            <th>Đường dẫn tĩnh</th>
+            <th>Danh mục</th>
+            <th>Tag</th>
+            <th>
+              <a href="?sort=status&dir=<%= (sort==='status' && dir==='asc') ? 'desc':'asc' %>">Trạng thái</a>
+            </th>
+            <th>
+              <a href="?sort=created_at&dir=<%= (sort==='created_at' && dir==='asc') ? 'desc':'asc' %>">Ngày tạo</a>
+            </th>
+            <th>
+              <a href="?sort=scheduled_at&dir=<%= (sort==='scheduled_at' && dir==='asc') ? 'desc':'asc' %>">Lên lịch</a>
+            </th>
+            <th style="width:140px">Hành động</th>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% if (!rows || rows.length===0) { %>
+            <tr><td colspan="9" class="text-center text-muted py-4">Chưa có bài viết nào.</td></tr>
+          <% } else { rows.forEach(r => { %>
+            <tr>
+              <td>
+                <!-- Bạn có thể thay bằng thumb thực tế nếu có cột ảnh -->
+                <div class="ratio ratio-1x1 bg-light border rounded" style="width:56px;height:56px;"></div>
+              </td>
+              <td class="fw-medium"><%= r.title || '(không tiêu đề)' %></td>
+              <td class="text-muted"><%= r.slug || '' %></td>
+              <td><%= r.categories_text || '' %></td>
+              <td><%= r.tags_text || '' %></td>
+              <td>
+                <% if (r.status === 'published') { %>
+                  <span class="badge text-bg-success">Xuất bản</span>
+                <% } else if(r.status === 'scheduled') { %>
+                  <span class="badge text-bg-info">Lên lịch</span>
+                <% } else if(r.status === 'pending') { %>
+                  <span class="badge text-bg-warning text-dark">Chờ duyệt</span>
+                <% } else { %>
+                  <span class="badge text-bg-secondary">Nháp</span>
+                <% } %>
+              </td>
+              <td><%= r.created_at_fmt || '' %></td>
+              <td><%= r.scheduled_at_fmt || '' %></td>
+              <td>
+                <a class="btn btn-sm btn-outline-primary" href="/admin/posts/<%= r.id %>/edit">Sửa</a>
+                <form action="/admin/posts/<%= r.id %>/trash" method="post" class="d-inline"
+                      onsubmit="return confirm('Chuyển bài viết vào Thùng rác?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-sm btn-outline-danger">Xoá</button>
+                </form>
+              </td>
+            </tr>
+          <% }) } %>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
