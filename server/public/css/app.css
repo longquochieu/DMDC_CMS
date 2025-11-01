@@ -1,1 +1,11 @@
 body { font-size: 14px; }
+/* Drag handle hint */
+.draggable-handle { cursor: grab; }
+.draggable-handle:active { cursor: grabbing; }
+
+/* Khi đang hover drop target */
+.drop-target {
+  background-color: rgba(13,110,253,.08); /* giống text-primary bg-subtle */
+  outline: 2px dashed rgba(13,110,253,.5);
+  border-radius: .5rem;
+}

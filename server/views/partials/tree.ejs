@@ -1,30 +1,49 @@
 <% if (Array.isArray(nodes)) { %>
   <% nodes.forEach(function(node){ %>
-    <li data-node-id="<%= node.id %>">
+    <li class="list-group-item py-2" data-node-id="<%= node.id %>">
       <div class="d-flex align-items-center gap-2">
-        <span class="draggable-handle" title="Kéo để đổi vị trí/đổi cha" style="cursor:grab;">⠿</span>
+        <!-- Handle kéo thả -->
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary px-2 draggable-handle"
+                title="Kéo để sắp xếp / đổi cha"
+                style="cursor:grab;">
+          <i class="fas fa-grip-vertical"></i>
+        </button>
 
-        <a href="/admin/<%= (basePath || 'pages') %>/<%= node.id %>/edit" class="node-title">
-          <%= node.title || '(Không tên)' %>
-        </a>
+        <!-- Tiêu đề + slug -->
+        <div class="flex-grow-1">
+          <a href="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/edit"
+             class="fw-semibold text-decoration-none">
+            <%= node.title || '(Không tên)' %>
+          </a>
+          <% if (node.slug) { %>
+            <small class="text-muted ms-2">/<%= node.slug %></small>
+          <% } %>
+        </div>
 
-        <% if (node.slug) { %>
-          <small class="text-muted ms-2"><%= node.slug %></small>
-        <% } %>
-
-        <form action="/admin/<%= (basePath || 'pages') %>/<%= node.id %>/trash" method="post" class="ms-auto d-inline">
-          <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : '') %>">
-          <button class="btn btn-xs btn-danger" onclick="return confirm('Chuyển vào thùng rác?')">
-            <i class="fas fa-trash"></i>
-          </button>
-        </form>
+        <!-- Nút hành động -->
+        <div class="btn-group btn-group-sm">
+          <a href="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/edit"
+             class="btn btn-outline-primary">
+            Sửa
+          </a>
+          <form action="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/trash"
+                method="post" class="d-inline"
+                onsubmit="return confirm('Chuyển vào thùng rác?');">
+            <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : '') %>">
+            <button class="btn btn-outline-danger">
+              Xoá
+            </button>
+          </form>
+        </div>
       </div>
 
+      <!-- Children -->
       <% if (node.children && node.children.length) { %>
-        <ul class="list-unstyled ms-4 mt-1">
+        <ul class="list-group list-group-flush ms-4 mt-2">
           <%- include('../partials/tree', {
                 nodes: node.children,
-                basePath: basePath,
+                basePath: (typeof basePath !== 'undefined' ? basePath : 'pages'),
                 csrfToken: (typeof csrfToken !== 'undefined' ? csrfToken : '')
           }) %>
         </ul>

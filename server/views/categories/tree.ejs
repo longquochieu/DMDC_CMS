@@ -1,11 +1,14 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title mb-0">Cây danh mục (kéo-thả để sắp xếp / đổi cha)</h3>
+    <div class="d-flex align-items-center gap-2">
+      <h3 class="card-title mb-0">Cây danh mục (kéo-thả để sắp xếp / đổi cha)</h3>
+      <a href="/admin/categories" class="btn btn-outline-secondary btn-sm">Dạng bảng</a>
+    </div>
     <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Thêm danh mục</a>
   </div>
 
   <div class="card-body" data-tree="categories" data-lang="<%= lang || 'vi' %>">
-    <ul class="list-unstyled m-0">
+    <ul id="cat-tree-root" class="list-group list-group-flush m-0">
       <%- include('../partials/tree', {
             nodes: tree,
             basePath: 'categories',
