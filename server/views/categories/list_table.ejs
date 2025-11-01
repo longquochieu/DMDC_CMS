@@ -1,0 +1,53 @@
+<div class="container-fluid">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title m-0"><%= pageTitle %></h3>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/admin/categories">Tree</a>
+        <a class="btn btn-primary btn-sm" href="/admin/categories/new">+ Thêm danh mục</a>
+      </div>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped m-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:70px">ID</th>
+              <th>Tên danh mục</th>
+              <th>Danh mục cha</th>
+              <th>Slug</th>
+              <th class="text-center" style="width:120px">Số bài</th>
+              <th>Tác giả</th>
+              <th>Ngày tạo</th>
+              <th style="width:140px">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (rows||[]).forEach(r => { %>
+              <tr>
+                <td>#<%= r.id %></td>
+                <td><strong><%= r.name || '(Không tên)' %></strong></td>
+                <td><%= r.parent_name || '-' %></td>
+                <td><code>/<%= r.slug || '' %></code></td>
+                <td class="text-center"><%= r.posts_count || 0 %></td>
+                <td><%= r.author || '-' %></td>
+                <td><%= r.created_at_fmt || r.created_at || '' %></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" href="/admin/categories/<%= r.id %>/edit">Sửa</a>
+                    <form action="/admin/categories/<%= r.id %>/trash" method="post"
+                          onsubmit="return confirm('Chuyển vào Thùng rác?')">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button class="btn btn-outline-danger">Xoá</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

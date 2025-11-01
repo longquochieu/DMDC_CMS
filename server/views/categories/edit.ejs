@@ -1,29 +1,63 @@
-<% include('../partials/flash') %>
-<form method="post">
-  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-  <div class="card">
-    <div class="card-body">
-      <div class="form-group"><label>Tên</label><input class="form-control" name="name" value="<%= item?item.name:'' %>" required></div>
-      <div class="form-group"><label>Slug</label><input class="form-control" name="slug" value="<%= item?item.slug:'' %>"></div>
-      <div class="form-row">
-        <div class="col">
-          <label>Parent</label>
-          <select class="form-control" name="parent_id">
-            <option value="">(Không)</option>
-            <% parents.forEach(p => { %>
-            <option value="<%= p.id %>" <%= item && item.parent_id===p.id ? 'selected':'' %>><%= p.name %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col">
-          <label>Order</label>
-          <input type="number" class="form-control" name="order_index" value="<%= item?item.order_index:0 %>">
-        </div>
-      </div>
-      <% if (item) { %>
-        <div class="form-group mt-3"><label>Full Path</label><div><code><%= item.full_path %></code></div></div>
-      <% } %>
+<!-- server/views/categories/edit.ejs -->
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
+    <div>
+      <a href="/admin/categories/table" class="btn btn-secondary btn-sm">Quay lại danh sách</a>
     </div>
-    <div class="card-footer"><button class="btn btn-primary">Lưu</button> <a class="btn btn-secondary" href="/admin/categories">Huỷ</a></div>
   </div>
-</form>
+
+  <% if (error) { %>
+    <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+
+  <form method="post" action="<%= item ? ('/admin/categories/' + item.id + '/edit') : '/admin/categories/new' %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="row">
+      <div class="col-md-8">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Thông tin chính</strong></div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Tên danh mục</label>
+              <input type="text" class="form-control" name="name" value="<%= item?.name || '' %>" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Đường dẫn tĩnh (slug)</label>
+              <input type="text" class="form-control" name="slug" placeholder="tudong-tao-tu-ten-neu-bo-trong" value="<%= item?.slug || '' %>">
+              <div class="form-text">Nếu để trống, hệ thống sẽ tự tạo từ tên danh mục.</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- col-md-8 -->
+
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Cài đặt</strong></div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Danh mục cha</label>
+              <select class="form-select" name="parent_id">
+                <option value="">(Không có)</option>
+                <% (parents||[]).forEach(p => { %>
+                  <option value="<%= p.id %>" <%= (String(item?.parent_id||'') === String(p.id)) ? 'selected' : '' %>><%= p.name %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Thứ tự</label>
+              <input type="number" class="form-control" name="order_index" value="<%= Number.isFinite(Number(item?.order_index)) ? item.order_index : '' %>" placeholder="Tự tăng nếu để trống">
+            </div>
+
+            <div class="d-grid">
+              <button class="btn btn-primary">Lưu</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- col-md-4 -->
+    </div><!-- row -->
+  </form>
+</div>

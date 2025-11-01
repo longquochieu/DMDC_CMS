@@ -1,28 +1,34 @@
-<% /* server/views/partials/tree.ejs */ %>
-<ul class="tree-list children" data-parent-id="<%= typeof parentId !== 'undefined' ? parentId : '' %>">
-  <% (nodes || []).forEach(function(node){ %>
-    <li class="tree-node" data-id="<%= node.id %>">
-      <div class="node-row">
-        <span class="node-handle">⠿</span>
-        <span class="node-title">
-          <strong>#<%= node.id %></strong>
-          — <%= node.title || '(không tiêu đề)' %>
-          <% if (node.slug) { %> <code>/ <%= node.slug %></code> <% } %>
-        </span>
-        <span class="node-actions">
-          <a class="btn btn-xs btn-outline-primary" href="/admin/pages/<%= node.id %>/edit">Sửa</a>
-          <form action="/admin/pages/<%= node.id %>/trash" method="post" class="d-inline">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button class="btn btn-xs btn-outline-danger" onclick="return confirm('Chuyển page #<%= node.id %> vào Trash?')">Xoá</button>
-          </form>
-        </span>
+<% if (Array.isArray(nodes)) { %>
+  <% nodes.forEach(function(node){ %>
+    <li data-node-id="<%= node.id %>">
+      <div class="d-flex align-items-center gap-2">
+        <span class="draggable-handle" title="Kéo để đổi vị trí/đổi cha" style="cursor:grab;">⠿</span>
+
+        <a href="/admin/<%= (basePath || 'pages') %>/<%= node.id %>/edit" class="node-title">
+          <%= node.title || '(Không tên)' %>
+        </a>
+
+        <% if (node.slug) { %>
+          <small class="text-muted ms-2"><%= node.slug %></small>
+        <% } %>
+
+        <form action="/admin/<%= (basePath || 'pages') %>/<%= node.id %>/trash" method="post" class="ms-auto d-inline">
+          <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : '') %>">
+          <button class="btn btn-xs btn-danger" onclick="return confirm('Chuyển vào thùng rác?')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </form>
       </div>
 
-      <% if ((node.children||[]).length) { %>
-        <%- include('tree', { nodes: node.children, parentId: node.id }) %>
-      <% } else { %>
-        <ul class="children" data-parent-id="<%= node.id %>"></ul>
+      <% if (node.children && node.children.length) { %>
+        <ul class="list-unstyled ms-4 mt-1">
+          <%- include('../partials/tree', {
+                nodes: node.children,
+                basePath: basePath,
+                csrfToken: (typeof csrfToken !== 'undefined' ? csrfToken : '')
+          }) %>
+        </ul>
       <% } %>
     </li>
   <% }) %>
-</ul>
+<% } %>

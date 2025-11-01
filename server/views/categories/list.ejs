@@ -1,11 +1,51 @@
+<!-- server/views/categories/list.ejs -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 m-0">Danh mục (Bảng)</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/categories/tree">Tree</a>
+    <a class="btn btn-sm btn-primary" href="/admin/categories/new">+ Thêm danh mục</a>
+  </div>
+</div>
 
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title">Cây Categories (kéo-thả để sắp xếp / đổi cha)</h3>
-    <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Thêm Category</a>
-  </div>
-  <div class="card-body" data-tree="categories" data-lang="<%= lang %>">
-    <%- include('../partials/tree-cats', { nodes: tree }) %>
-    <p class="text-muted mt-3">Mẹo: kéo vào tiêu đề để đổi cha; kéo giữa các mục để đổi thứ tự trong cùng cấp.</p>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:80px">ID</th>
+            <th>Tên danh mục</th>
+            <th>Slug</th>
+            <th>Danh mục cha</th>
+            <th style="width:120px">Thứ tự</th>
+            <th style="width:180px">Ngày tạo</th>
+            <th style="width:140px">Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (rows || []).forEach(r => { %>
+            <tr>
+              <td>#<%= r.id %></td>
+              <td><%= r.title || '(không tiêu đề)' %></td>
+              <td class="text-muted"><%= r.slug || '' %></td>
+              <td class="text-muted"><%= r.parent_title || '' %></td>
+              <td><%= r.order_index ?? 0 %></td>
+              <td class="text-muted"><%= r.created_at_fmt || r.created_at || '' %></td>
+              <td>
+                <a href="/admin/categories/<%= r.id %>/edit" class="btn btn-sm btn-primary">Sửa</a>
+                <form action="/admin/categories/<%= r.id %>/trash" method="post" class="d-inline"
+                  onsubmit="return confirm('Chuyển danh mục vào thùng rác?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-sm btn-outline-danger">Xoá</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!rows || rows.length === 0) { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Chưa có danh mục.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
