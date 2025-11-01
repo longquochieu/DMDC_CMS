@@ -1,53 +1,35 @@
-<% if (Array.isArray(nodes)) { %>
-  <% nodes.forEach(function(node){ %>
-    <li class="list-group-item py-2" data-node-id="<%= node.id %>">
-      <div class="d-flex align-items-center gap-2">
-        <!-- Handle kéo thả -->
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary px-2 draggable-handle"
-                title="Kéo để sắp xếp / đổi cha"
-                style="cursor:grab;">
-          <i class="fas fa-grip-vertical"></i>
-        </button>
+<!-- server/views/partials/tree.ejs -->
+<% (nodes || []).forEach(function(node){ %>
+  <li class="list-group-item" data-node-id="<%= node.id %>">
+    <div class="d-flex align-items-center gap-2">
+      <span class="draggable-handle" title="Kéo để đổi vị trí / đổi cha" style="cursor:grab;">⠿</span>
 
-        <!-- Tiêu đề + slug -->
-        <div class="flex-grow-1">
-          <a href="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/edit"
-             class="fw-semibold text-decoration-none">
-            <%= node.title || '(Không tên)' %>
-          </a>
-          <% if (node.slug) { %>
-            <small class="text-muted ms-2">/<%= node.slug %></small>
-          <% } %>
-        </div>
+      <a href="/admin/<%= (typeof basePath !== 'undefined' && basePath ? basePath : 'pages') %>/<%= node.id %>/edit"
+         class="node-title text-decoration-none">
+        <%= node.title || '(Không tên)' %>
+      </a>
 
-        <!-- Nút hành động -->
-        <div class="btn-group btn-group-sm">
-          <a href="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/edit"
-             class="btn btn-outline-primary">
-            Sửa
-          </a>
-          <form action="/admin/<%= (typeof basePath !== 'undefined' ? basePath : 'pages') %>/<%= node.id %>/trash"
-                method="post" class="d-inline"
-                onsubmit="return confirm('Chuyển vào thùng rác?');">
-            <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : '') %>">
-            <button class="btn btn-outline-danger">
-              Xoá
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Children -->
-      <% if (node.children && node.children.length) { %>
-        <ul class="list-group list-group-flush ms-4 mt-2">
-          <%- include('../partials/tree', {
-                nodes: node.children,
-                basePath: (typeof basePath !== 'undefined' ? basePath : 'pages'),
-                csrfToken: (typeof csrfToken !== 'undefined' ? csrfToken : '')
-          }) %>
-        </ul>
+      <% if (node.slug) { %>
+        <small class="text-muted ms-2">/<%= node.slug %></small>
       <% } %>
-    </li>
-  <% }) %>
-<% } %>
+
+      <form action="/admin/<%= (typeof basePath !== 'undefined' && basePath ? basePath : 'pages') %>/<%= node.id %>/trash"
+            method="post" class="ms-auto d-inline">
+        <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : '') %>">
+        <button class="btn btn-xs btn-danger" onclick="return confirm('Chuyển vào thùng rác?')">
+          <i class="fas fa-trash"></i>
+        </button>
+      </form>
+    </div>
+
+    <% if (node.children && node.children.length) { %>
+      <ul class="list-group list-group-flush ms-4 mt-2">
+        <%- include('../partials/tree', {
+              nodes: node.children,
+              basePath: (typeof basePath !== 'undefined' ? basePath : 'pages'),
+              csrfToken: (typeof csrfToken !== 'undefined' ? csrfToken : '')
+        }) %>
+      </ul>
+    <% } %>
+  </li>
+<% }); %>

@@ -11,7 +11,7 @@
     var treeType = container.getAttribute('data-tree'); // 'pages' | 'categories'
     var lang = container.getAttribute('data-lang') || 'vi';
 
-    // 🔧 Hỗ trợ đủ mọi ID root có thể xuất hiện trong markup
+    // Hỗ trợ đầy đủ các khả năng root id
     var root =
       container.querySelector('#pages-tree-root, #page-tree-root, #cat-tree-root, #categories-tree-root') ||
       container.querySelector('ul');
@@ -52,7 +52,7 @@
       if (!draggingLi) return;
       var li = e.target.closest('li');
       if (!li || li === draggingLi) return;
-      e.preventDefault(); // bắt buộc để nhận 'drop'
+      e.preventDefault(); // cần để nhận drop
     });
 
     root.addEventListener('dragleave', function (e) {
@@ -71,7 +71,7 @@
       var dropOnTitle = !!targetHandle;
 
       if (dropOnTitle) {
-        // Thả lên tiêu đề → đổi CHA: trở thành con của targetLi
+        // Thả lên tiêu đề → đổi CHA (đẩy vào ul con)
         var childUl = targetLi.querySelector(':scope > ul');
         if (!childUl) {
           childUl = document.createElement('ul');
@@ -81,7 +81,7 @@
         childUl.appendChild(draggingLi);
         persistOrder(draggingLi, targetLi, null);
       } else {
-        // Thả vào phần khác → đổi THỨ TỰ cùng cấp
+        // Thả vào khoảng trống giữa items → đổi THỨ TỰ cùng cấp
         targetLi.parentElement.insertBefore(draggingLi, targetLi);
         var parentLi = targetLi.closest('li'); // null nếu ở root
         var index = indexOfLi(draggingLi);

@@ -1,48 +1,52 @@
 <!-- server/views/categories/list.ejs -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 m-0">Danh mục (Bảng)</h1>
-  <div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-secondary" href="/admin/categories/tree">Tree</a>
-    <a class="btn btn-sm btn-primary" href="/admin/categories/new">+ Thêm danh mục</a>
-  </div>
-</div>
-
 <div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title m-0">Danh mục</h3>
+    <div class="d-flex gap-2">
+      <a href="/admin/categories/tree" class="btn btn-outline-secondary btn-sm">Dạng cây</a>
+      <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Thêm danh mục</a>
+    </div>
+  </div>
+
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-striped table-hover table-bordered mb-0 align-middle">
         <thead class="table-light">
           <tr>
-            <th style="width:80px">ID</th>
+            <th style="width:70px">ID</th>
             <th>Tên danh mục</th>
-            <th>Slug</th>
             <th>Danh mục cha</th>
-            <th style="width:120px">Thứ tự</th>
-            <th style="width:180px">Ngày tạo</th>
-            <th style="width:140px">Hành động</th>
+            <th>Slug</th>
+            <th>Ngày tạo</th>
+            <th>Người tạo</th>
+            <th style="width:140px; text-align:right;">Số bài viết</th>
+            <th style="width:120px">Hành động</th>
           </tr>
         </thead>
         <tbody>
-          <% (rows || []).forEach(r => { %>
-            <tr>
-              <td>#<%= r.id %></td>
-              <td><%= r.title || '(không tiêu đề)' %></td>
-              <td class="text-muted"><%= r.slug || '' %></td>
-              <td class="text-muted"><%= r.parent_title || '' %></td>
-              <td><%= r.order_index ?? 0 %></td>
-              <td class="text-muted"><%= r.created_at_fmt || r.created_at || '' %></td>
-              <td>
-                <a href="/admin/categories/<%= r.id %>/edit" class="btn btn-sm btn-primary">Sửa</a>
-                <form action="/admin/categories/<%= r.id %>/trash" method="post" class="d-inline"
-                  onsubmit="return confirm('Chuyển danh mục vào thùng rác?')">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <button class="btn btn-sm btn-outline-danger">Xoá</button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
           <% if (!rows || rows.length === 0) { %>
-            <tr><td colspan="7" class="text-center text-muted py-4">Chưa có danh mục.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4">Chưa có danh mục nào.</td></tr>
+          <% } else { %>
+            <% rows.forEach(r => { %>
+              <tr>
+                <td><code>#<%= r.id %></code></td>
+                <td><strong><a class="text-decoration-none" href="/admin/categories/<%= r.id %>/edit"><%= r.title || '(Không tên)' %></a></strong></td>
+                <td><%= r.parent_title || '-' %></td>
+                <td><small class="text-muted">/<%= r.slug || '' %></small></td>
+                <td><%= r.created_at || '' %></td>
+                <td><%= r.author || '' %></td>
+                <td class="text-end"><strong><%= (typeof r.post_count !== 'undefined' ? r.post_count : 0) %></strong></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" href="/admin/categories/<%= r.id %>/edit">Sửa</a>
+                    <form class="d-inline" method="post" action="/admin/categories/<%= r.id %>/trash" onsubmit="return confirm('Chuyển vào thùng rác?');">
+                      <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : (res && res.locals && res.locals.csrfToken) || '') %>">
+                      <button class="btn btn-outline-danger">Xoá</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
           <% } %>
         </tbody>
       </table>
