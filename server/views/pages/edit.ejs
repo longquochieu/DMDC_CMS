@@ -45,26 +45,8 @@
       </div>
 
       <!-- SEO (placeholder) -->
-      <div class="card mb-3">
-        <div class="card-header"><strong>SEO (Placeholder – sẽ ghép dữ liệu sau)</strong></div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Meta Title</label>
-              <input type="text" class="form-control" placeholder="Chưa lưu DB (demo)">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Meta Keywords</label>
-              <input type="text" class="form-control" placeholder="Chưa lưu DB (demo)">
-            </div>
-            <div class="col-12">
-              <label class="form-label">Meta Description</label>
-              <textarea class="form-control" rows="3" placeholder="Chưa lưu DB (demo)"></textarea>
-            </div>
-          </div>
-        </div>
-      </div>
-
+	  <%- include('../partials/seo_panel', { seo, seoDefaults, csrfToken }) %>
+    
       <!-- Nút Lưu / Huỷ -->
       <div class="d-flex gap-2 mb-4">
         <button class="btn btn-primary">Lưu</button>

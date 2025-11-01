@@ -6,6 +6,9 @@ import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { getCategoriesTree } from "../services/categories_tree.js";
 
+// [SEO+] dịch vụ SEO (đã dùng cho posts/pages)
+import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
+
 const router = express.Router();
 
 /* =========================
@@ -105,12 +108,19 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
     [lang]
   );
 
+  // [SEO+] form thêm mới: chưa có SEO → seo = null; kèm default để gợi ý
+  const seo = null;
+  const seoDefaults = await getSeoDefaults();
+
   return res.render("categories/edit", {
     pageTitle: "Thêm danh mục",
     item: null,
     parents,
     error: null,
-    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || "")
+    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
+    // [SEO+]
+    seo,
+    seoDefaults
   });
 });
 
@@ -151,6 +161,11 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       [id, lang, theName, theSlug]
     );
 
+    // [SEO+] lưu SEO nếu form gửi kèm
+    if (req.body.seo) {
+      await saveSeo('category', Number(id), req.body.seo, req.user?.id);
+    }
+
     return res.redirect("/admin/categories");
   } catch (e) {
     const parents = await db.all(
@@ -163,12 +178,18 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       [await getSetting("default_language", "vi")]
     );
 
+    // [SEO+] khi lỗi: vẫn trả về defaults + dữ liệu người dùng gửi lên
+    const seoDefaults = await getSeoDefaults();
+
     return res.render("categories/edit", {
       pageTitle: "Thêm danh mục",
       item: null,
       parents,
       error: e.message,
-      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || "")
+      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
+      // [SEO+]
+      seo: req.body.seo || null,
+      seoDefaults
     });
   }
 });
@@ -202,12 +223,19 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
     [lang, id]
   );
 
+  // [SEO+] đọc SEO hiện có + defaults
+  const seo = await getSeo('category', id);
+  const seoDefaults = await getSeoDefaults();
+
   return res.render("categories/edit", {
     pageTitle: "Sửa danh mục",
     item,
     parents,
     error: null,
-    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || "")
+    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
+    // [SEO+]
+    seo,
+    seoDefaults
   });
 });
 
@@ -261,6 +289,11 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       );
     }
 
+    // [SEO+] lưu SEO nếu form gửi kèm
+    if (req.body.seo) {
+      await saveSeo('category', id, req.body.seo, req.user?.id);
+    }
+
     return res.redirect("/admin/categories");
   } catch (e) {
     const parents = await db.all(
@@ -282,12 +315,18 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       [lang, id]
     );
 
+    // [SEO+] khi lỗi: giữ dữ liệu người dùng vừa nhập + defaults
+    const seoDefaults = await getSeoDefaults();
+
     return res.render("categories/edit", {
       pageTitle: "Sửa danh mục",
       item,
       parents,
       error: e.message,
-      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || "")
+      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
+      // [SEO+]
+      seo: req.body.seo || (await getSeo('category', id)),
+      seoDefaults
     });
   }
 });

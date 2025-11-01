@@ -10,6 +10,9 @@ import { buildFullPathForPage } from '../services/hierarchy.js';
 import { logActivity } from '../services/activity.js';
 import { getPagesTree } from '../services/tree.js';
 
+// [SEO+] dịch vụ SEO
+import { getSeo, saveSeo, getSeoDefaults } from '../services/seo.js';
+
 const router = express.Router();
 
 const TEMPLATES = ['default','landing','contact']; // có thể đọc từ settings sau
@@ -83,7 +86,22 @@ router.get('/new', requireRoles('admin','editor','author','contributor'), async 
     WHERE p.deleted_at IS NULL
     ORDER BY t.title
   `, lang);
-  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null, templates: TEMPLATES });
+
+  // [SEO+] form trang mới: chưa có SEO → seo = null; lấy default để gợi ý
+  const seo = null;
+  const seoDefaults = await getSeoDefaults();
+
+  res.render('pages/edit', {
+    pageTitle:'New Page',
+    item:null,
+    parents,
+    lang,
+    error:null,
+    templates: TEMPLATES,
+    // [SEO+]
+    seo,
+    seoDefaults
+  });
 });
 
 /** ===== NEW (submit) ===== */
@@ -111,15 +129,34 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
     const full = await buildFullPathForPage(idRow.id, lang);
     await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, idRow.id, lang);
 
+    // [SEO+] lưu SEO nếu form gửi kèm
+    if (req.body.seo) {
+      await saveSeo('page', idRow.id, req.body.seo, req.user?.id);
+    }
+
     await logActivity(req.user.id, 'create', 'page', idRow.id);
     res.redirect('/admin/pages');
   }catch(e){
-    const parents = await db.all(`
+    const parents = await getDb().then(d => d.all(`
       SELECT p.id, t.title
       FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
       WHERE p.deleted_at IS NULL ORDER BY t.title
-    `, lang);
-    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message, templates: TEMPLATES });
+    `, lang));
+
+    // [SEO+] khi lỗi vẫn render lại defaults + dữ liệu người dùng nhập
+    const seoDefaults = await getSeoDefaults();
+
+    res.render('pages/edit', {
+      pageTitle:'New Page',
+      item:null,
+      parents,
+      lang,
+      error:e.message,
+      templates: TEMPLATES,
+      // [SEO+]
+      seo: req.body.seo || null,
+      seoDefaults
+    });
   }
 });
 
@@ -144,7 +181,21 @@ router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), a
     WHERE p.id=?`, lang, id
   );
 
-  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null, templates: TEMPLATES });
+  // [SEO+] đọc SEO hiện có + defaults
+  const seo = await getSeo('page', Number(id));
+  const seoDefaults = await getSeoDefaults();
+
+  res.render('pages/edit', {
+    pageTitle:'Edit Page',
+    item,
+    parents,
+    lang,
+    error:null,
+    templates: TEMPLATES,
+    // [SEO+]
+    seo,
+    seoDefaults
+  });
 });
 
 /** ===== EDIT (submit) ===== */
@@ -173,6 +224,11 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
     const full = await buildFullPathForPage(id, lang);
     await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, id, lang);
 
+    // [SEO+] lưu SEO nếu form gửi kèm
+    if (req.body.seo) {
+      await saveSeo('page', Number(id), req.body.seo, req.user?.id);
+    }
+
     await logActivity(req.user.id, 'update', 'page', id);
     res.redirect('/admin/pages');
   }catch(e){
@@ -189,7 +245,21 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
       LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
       WHERE p.id=?`, lang, id
     );
-    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message, templates: TEMPLATES });
+
+    // [SEO+] khi lỗi: giữ dữ liệu người dùng vừa nhập + defaults
+    const seoDefaults = await getSeoDefaults();
+
+    res.render('pages/edit', {
+      pageTitle:'Edit Page',
+      item,
+      parents,
+      lang,
+      error:e.message,
+      templates: TEMPLATES,
+      // [SEO+]
+      seo: req.body.seo || (await getSeo('page', Number(id))),
+      seoDefaults
+    });
   }
 });
 

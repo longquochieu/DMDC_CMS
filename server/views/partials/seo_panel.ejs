@@ -1,0 +1,131 @@
+<% /* server/views/partials/seo_panel.ejs
+  Kỳ vọng biến truyền vào:
+    - seo: object | null (getSeo)
+    - seoDefaults: object (getSeoDefaults)
+    - csrfToken: string (dùng nếu cần, nhưng panel này KHÔNG submit riêng)
+*/ %>
+<div class="card mt-4">
+  <div class="card-header d-flex align-items-center">
+    <strong>SEO</strong>
+    <button type="button" class="btn btn-sm btn-link ms-auto" data-bs-toggle="collapse" data-bs-target="#seo-panel">
+      Hiện/Ẩn
+    </button>
+  </div>
+  <div id="seo-panel" class="collapse show">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">SEO Title</label>
+          <input class="form-control" name="seo[title]" value="<%= seo?.title || '' %>" placeholder="<%= (seoDefaults?.tplPostTitle || '%title% %sep% %sitename%') %>">
+          <div class="form-text">Gợi ý: %title% %sep% %sitename%</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Focus Keyword</label>
+          <input class="form-control" name="seo[focus_keyword]" value="<%= seo?.focus_keyword || '' %>">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Meta Description</label>
+          <textarea class="form-control" name="seo[meta_description]" rows="2"><%= seo?.meta_description || '' %></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Canonical URL</label>
+          <input class="form-control" name="seo[canonical_url]" value="<%= seo?.canonical_url || '' %>">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Robots Index</label>
+          <select class="form-select" name="seo[robots_index]">
+            <option value="index"   <%= (seo?.robots_index || seoDefaults?.defIndex) === 'index' ? 'selected' : '' %>>index</option>
+            <option value="noindex" <%= (seo?.robots_index || seoDefaults?.defIndex) === 'noindex' ? 'selected' : '' %>>noindex</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Robots Follow</label>
+          <select class="form-select" name="seo[robots_follow]">
+            <option value="follow"   <%= (seo?.robots_follow || seoDefaults?.defFollow) === 'follow' ? 'selected' : '' %>>follow</option>
+            <option value="nofollow" <%= (seo?.robots_follow || seoDefaults?.defFollow) === 'nofollow' ? 'selected' : '' %>>nofollow</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Robots nâng cao</label>
+          <input class="form-control" name="seo[robots_advanced]" value="<%= seo?.robots_advanced || seoDefaults?.defRobotsAdv || '' %>" placeholder="noarchive,nosnippet">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">OG Title</label>
+          <input class="form-control" name="seo[og_title]" value="<%= seo?.og_title || '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">OG Description</label>
+          <input class="form-control" name="seo[og_description]" value="<%= seo?.og_description || '' %>">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">OG Image URL</label>
+          <div class="input-group">
+            <input id="seo_og_image_url" class="form-control" name="seo[og_image_url]" value="<%= seo?.og_image_url || seoDefaults?.defOgImage || '' %>">
+            <button class="btn btn-outline-secondary" type="button" data-pick-to="#seo_og_image_url">Chọn ảnh</button>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Twitter Card</label>
+          <select class="form-select" name="seo[twitter_card]">
+            <option value="summary" <%= (seo?.twitter_card||'summary_large_image')==='summary'?'selected':'' %>>summary</option>
+            <option value="summary_large_image" <%= (seo?.twitter_card||'summary_large_image')==='summary_large_image'?'selected':'' %>>summary_large_image</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Twitter Title</label>
+          <input class="form-control" name="seo[twitter_title]" value="<%= seo?.twitter_title || '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Twitter Description</label>
+          <input class="form-control" name="seo[twitter_description]" value="<%= seo?.twitter_description || '' %>">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Twitter Image URL</label>
+          <div class="input-group">
+            <input id="seo_twitter_image_url" class="form-control" name="seo[twitter_image_url]" value="<%= seo?.twitter_image_url || '' %>">
+            <button class="btn btn-outline-secondary" type="button" data-pick-to="#seo_twitter_image_url">Chọn ảnh</button>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Schema Type</label>
+          <select class="form-select" name="seo[schema_type]">
+            <option value=""></option>
+            <option <%= (seo?.schema_type==='Article'?'selected':'') %> >Article</option>
+            <option <%= (seo?.schema_type==='NewsArticle'?'selected':'') %> >NewsArticle</option>
+            <option <%= (seo?.schema_type==='BlogPosting'?'selected':'') %> >BlogPosting</option>
+            <option <%= (seo?.schema_type==='FAQPage'?'selected':'') %> >FAQPage</option>
+            <option <%= (seo?.schema_type==='Product'?'selected':'') %> >Product</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Schema JSON-LD (tuỳ chỉnh)</label>
+          <textarea class="form-control" name="seo[schema_json]" rows="3" placeholder='{"@context":"https://schema.org",...}'><%= seo?.schema_json || '' %></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Nút "Chọn ảnh" tận dụng media picker sẵn (nếu đã có editor.js cung cấp openMediaPicker)
+  document.currentScript.closest('.card').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-pick-to]');
+    if(!btn) return;
+    var sel = btn.getAttribute('data-pick-to');
+    var input = document.querySelector(sel);
+    if(!input) return;
+    if(typeof window.openMediaPicker === 'function'){
+      window.openMediaPicker(function(url){
+        input.value = url;
+      });
+    }else{
+      var url = prompt('Dán URL ảnh:');
+      if(url) input.value = url;
+    }
+  });
+})();
+</script>

@@ -7,6 +7,9 @@ import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { formatUtcToTZ, localToUtcSql } from "../utils/time.js";
 
+// [SEO+] import dịch vụ SEO
+import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
+
 const router = express.Router();
 
 /* ------------------------ Helpers ------------------------ */
@@ -276,6 +279,10 @@ router.get(
     const nowUtcSql = `${now.toISOString().slice(0, 19).replace("T", " ")}`;
     const nowLocal = formatUtcToTZ(nowUtcSql, tz, "yyyy-MM-dd HH:mm").replace(" ", "T");
 
+    // [SEO+] lấy default SEO cho form (bài mới chưa có seo)
+    const seo = null;
+    const seoDefaults = await getSeoDefaults();
+
     res.render("posts/edit", {
       pageTitle: "Tạo bài viết",
       mode: "create",
@@ -287,6 +294,9 @@ router.get(
       created_at_local: nowLocal,
       scheduled_at_local: "",
       error: null,
+      // [SEO+]
+      seo,
+      seoDefaults,
     });
   }
 );
@@ -379,22 +389,39 @@ router.post(
       const galleryUrls =
         req.body["gallery_urls[]"] ||
         (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
-      await replaceGalleryByUrls(db, postId, Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean));
+      await replaceGalleryByUrls(
+        db,
+        postId,
+        Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
+      );
+
+      // [SEO+] lưu SEO nếu form gửi kèm
+      if (req.body.seo) {
+        await saveSeo("post", postId, req.body.seo, req.user?.id);
+      }
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
+
+      // [SEO+] giữ defaults cho form khi lỗi
+      const seoDefaults = await getSeoDefaults();
+
       res.status(400).render("posts/edit", {
         pageTitle: "Tạo bài viết",
         mode: "create",
         item: null,
         categories,
-        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds:
+          (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
         primaryCategoryId: req.body.primary_category_id || "",
         gallery: [],
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
+        // [SEO+]
+        seo: req.body.seo || null,
+        seoDefaults,
       });
     }
   }
@@ -424,6 +451,10 @@ router.get(
       ? formatUtcToTZ(item.scheduled_at, tz, "yyyy-MM-dd HH:mm").replace(" ", "T")
       : "";
 
+    // [SEO+] đọc SEO hiện có + defaults
+    const seo = await getSeo("post", id);
+    const seoDefaults = await getSeoDefaults();
+
     res.render("posts/edit", {
       pageTitle: "Sửa bài viết",
       mode: "edit",
@@ -435,6 +466,9 @@ router.get(
       created_at_local: createdLocal,
       scheduled_at_local: scheduledLocal,
       error: null,
+      // [SEO+]
+      seo,
+      seoDefaults,
     });
   }
 );
@@ -529,11 +563,24 @@ router.post(
       const galleryUrls =
         req.body["gallery_urls[]"] ||
         (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
-      await replaceGalleryByUrls(db, id, Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean));
+      await replaceGalleryByUrls(
+        db,
+        id,
+        Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
+      );
+
+      // [SEO+] lưu SEO nếu form gửi kèm
+      if (req.body.seo) {
+        await saveSeo("post", id, req.body.seo, req.user?.id);
+      }
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
+
+      // [SEO+] lấy defaults để render lại form khi lỗi
+      const seoDefaults = await getSeoDefaults();
+
       res.status(400).render("posts/edit", {
         pageTitle: "Sửa bài viết",
         mode: "edit",
@@ -546,12 +593,16 @@ router.post(
           featured_url: req.body.featured_url || "",
         },
         categories,
-        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds:
+          (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
         primaryCategoryId: req.body.primary_category_id || "",
         gallery: [],
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
+        // [SEO+]
+        seo: req.body.seo || null,
+        seoDefaults,
       });
     }
   }

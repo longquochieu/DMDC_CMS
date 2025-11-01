@@ -31,25 +31,8 @@
 
 
       <!-- SEO placeholder -->
-      <div class="card mb-3">
-        <div class="card-header d-flex align-items-center">
-          <strong>SEO</strong>
-          <span class="ms-2 text-muted small">(hiển thị sẵn, sẽ ghép chức năng sau)</span>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-12 col-md-6">
-              <label class="form-label">Meta Title</label>
-              <input type="text" class="form-control" disabled placeholder="(đang để trống)">
-            </div>
-            <div class="col-12 col-md-6">
-              <label class="form-label">Meta Description</label>
-              <input type="text" class="form-control" disabled placeholder="(đang để trống)">
-            </div>
-          </div>
-        </div>
-      </div>
-
+	  <%- include('../partials/seo_panel', { seo, seoDefaults, csrfToken }) %>
+	
       <!-- Actions -->
       <div class="mb-5">
         <button class="btn btn-primary">Lưu</button>
