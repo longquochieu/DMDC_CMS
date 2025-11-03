@@ -6,8 +6,6 @@ import { getDb } from "../utils/db.js";
 import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { formatUtcToTZ, localToUtcSql } from "../utils/time.js";
-
-// [SEO+] import dịch vụ SEO
 import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
 
 const router = express.Router();
@@ -65,8 +63,17 @@ function cleanHtml(input) {
   return sanitizeHtml(input || "", cfg);
 }
 
+function stripToText(html = "", max = 160) {
+  const t = (html || "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
+}
+
 async function getCategoriesIndented(db, lang) {
-  // Lấy đầy đủ để render dạng cây (thụt lề)
   const rows = await db.all(
     `SELECT c.id, c.parent_id, c.order_index,
             COALESCE(ct.name, '') AS name
@@ -77,14 +84,12 @@ async function getCategoriesIndented(db, lang) {
      ORDER BY COALESCE(c.parent_id, 0), c.order_index, c.id`,
     lang
   );
-
   const byParent = new Map();
   rows.forEach((r) => {
     const k = r.parent_id || 0;
     if (!byParent.has(k)) byParent.set(k, []);
     byParent.get(k).push(r);
   });
-
   const out = [];
   const dfs = (pid, depth) => {
     const list = byParent.get(pid || 0) || [];
@@ -102,11 +107,9 @@ async function getCategoriesIndented(db, lang) {
 }
 
 async function getPostRow(db, id, lang) {
-  // Lấy post + bản dịch
   const item = await db.get(
     `SELECT p.*,
             t.title, t.slug, t.content_html,
-            -- featured url qua media_usages
             (SELECT m.url
                FROM media_usages mu
                JOIN media m ON m.id = mu.media_id
@@ -122,7 +125,6 @@ async function getPostRow(db, id, lang) {
   );
   if (!item) return null;
 
-  // Danh mục đã chọn + primary
   const cats = await db.all(
     `SELECT pc.category_id, pc.is_primary
        FROM posts_categories pc
@@ -133,7 +135,6 @@ async function getPostRow(db, id, lang) {
   const primaryCat =
     cats.find((x) => x.is_primary === 1)?.category_id || selectedIds[0] || "";
 
-  // Gallery (nếu có)
   let gallery = [];
   try {
     gallery = await db.all(
@@ -144,10 +145,7 @@ async function getPostRow(db, id, lang) {
         ORDER BY mu.position`,
       id
     );
-  } catch {
-    // bảng/field có thể khác, bỏ qua
-  }
-
+  } catch {}
   return { item, selectedIds, primaryCat, gallery };
 }
 
@@ -209,7 +207,6 @@ router.get("/", requireAuth, async (req, res) => {
       u.username AS author,
       t.title,
       t.slug,
-      -- featured (qua media_usages)
       (
         SELECT m.url
           FROM media_usages mu
@@ -218,7 +215,6 @@ router.get("/", requireAuth, async (req, res) => {
          ORDER BY mu.position
          LIMIT 1
       ) AS featured_url,
-      -- categories
       (
         SELECT GROUP_CONCAT(ct.name, ', ')
           FROM posts_categories pc
@@ -226,7 +222,6 @@ router.get("/", requireAuth, async (req, res) => {
             ON ct.category_id = pc.category_id AND ct.language = ?
          WHERE pc.post_id = p.id
       ) AS categories_text,
-      -- tags
       (
         SELECT GROUP_CONCAT(tt.name, ', ')
           FROM posts_tags pt
@@ -271,17 +266,31 @@ router.get(
     const db = await getDb();
     const lang = await getSetting("default_language", "vi");
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
-
     const categories = await getCategoriesIndented(db, lang);
 
-    // Giá trị mặc định
     const now = new Date();
     const nowUtcSql = `${now.toISOString().slice(0, 19).replace("T", " ")}`;
     const nowLocal = formatUtcToTZ(nowUtcSql, tz, "yyyy-MM-dd HH:mm").replace(" ", "T");
 
-    // [SEO+] lấy default SEO cho form (bài mới chưa có seo)
-    const seo = null;
+    // SEO defaults (new): để trống; UI tự động fill từ tiêu đề/nội dung khi người dùng nhập
     const seoDefaults = await getSeoDefaults();
+    const seoData = {
+      title: "",
+      description: "",
+      focus_keyword: "",
+      robots_index: "index",
+      robots_follow: "follow",
+      robots_advanced: "",
+      canonical: "",
+      schema_type: "",
+      schema_jsonld: "",
+      og_title: "",
+      og_description: "",
+      og_image: "",
+      twitter_title: "",
+      twitter_description: "",
+      twitter_image: ""
+    };
 
     res.render("posts/edit", {
       pageTitle: "Tạo bài viết",
@@ -294,9 +303,8 @@ router.get(
       created_at_local: nowLocal,
       scheduled_at_local: "",
       error: null,
-      // [SEO+]
-      seo,
-      seoDefaults,
+      seo: seoData,
+      seoDefaults
     });
   }
 );
@@ -317,7 +325,7 @@ router.post(
         content_html,
         created_at_local,
         scheduled_at_local,
-        featured_url, // từ UI
+        featured_url,
       } = req.body;
 
       let category_ids = req.body["category_ids[]"] || req.body.category_ids || [];
@@ -380,12 +388,12 @@ router.post(
         );
       }
 
-      // Ảnh đại diện qua media_usages
+      // Ảnh đại diện
       if (featured_url) {
         await upsertFeaturedByUrl(db, postId, featured_url);
       }
 
-      // Gallery (tuỳ chọn)
+      // Gallery
       const galleryUrls =
         req.body["gallery_urls[]"] ||
         (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
@@ -395,33 +403,30 @@ router.post(
         Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
       );
 
-      // [SEO+] lưu SEO nếu form gửi kèm
-      if (req.body.seo) {
-        await saveSeo("post", postId, req.body.seo, req.user?.id);
-      }
+      // === SEO SAVE ===
+      const seoForm = req.body.seo || {};
+      // Nếu title/description để trống → tự sinh từ tiêu đề/nội dung
+      if (!seoForm.title) seoForm.title = title || "";
+      if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
+      await saveSeo("post", postId, seoForm, req.user?.id, lang);
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
-
-      // [SEO+] giữ defaults cho form khi lỗi
       const seoDefaults = await getSeoDefaults();
-
       res.status(400).render("posts/edit", {
         pageTitle: "Tạo bài viết",
         mode: "create",
         item: null,
         categories,
-        selectedCategoryIds:
-          (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
         primaryCategoryId: req.body.primary_category_id || "",
         gallery: [],
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
-        // [SEO+]
-        seo: req.body.seo || null,
-        seoDefaults,
+        seo: req.body.seo || {},
+        seoDefaults
       });
     }
   }
@@ -451,9 +456,11 @@ router.get(
       ? formatUtcToTZ(item.scheduled_at, tz, "yyyy-MM-dd HH:mm").replace(" ", "T")
       : "";
 
-    // [SEO+] đọc SEO hiện có + defaults
-    const seo = await getSeo("post", id);
+    // === SEO LOAD (+auto default nếu trống) ===
     const seoDefaults = await getSeoDefaults();
+    const seoData = (await getSeo("post", id, lang)) || {};
+    if (!seoData.title) seoData.title = item.title || "";
+    if (!seoData.description) seoData.description = stripToText(item.content_html || "", 160);
 
     res.render("posts/edit", {
       pageTitle: "Sửa bài viết",
@@ -466,9 +473,8 @@ router.get(
       created_at_local: createdLocal,
       scheduled_at_local: scheduledLocal,
       error: null,
-      // [SEO+]
-      seo,
-      seoDefaults,
+      seo: seoData,
+      seoDefaults
     });
   }
 );
@@ -544,7 +550,6 @@ router.post(
         lang
       );
 
-      // Danh mục
       await db.run(`DELETE FROM posts_categories WHERE post_id = ?`, id);
       for (const cid of category_ids) {
         const isPrimary = String(cid) === String(primary_category_id) ? 1 : 0;
@@ -556,10 +561,8 @@ router.post(
         );
       }
 
-      // Ảnh đại diện qua media_usages
       await upsertFeaturedByUrl(db, id, featured_url);
 
-      // Gallery (tuỳ chọn)
       const galleryUrls =
         req.body["gallery_urls[]"] ||
         (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
@@ -569,18 +572,16 @@ router.post(
         Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
       );
 
-      // [SEO+] lưu SEO nếu form gửi kèm
-      if (req.body.seo) {
-        await saveSeo("post", id, req.body.seo, req.user?.id);
-      }
+      // === SEO SAVE ===
+      const seoForm = req.body.seo || {};
+      if (!seoForm.title) seoForm.title = title || "";
+      if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
+      await saveSeo("post", id, seoForm, req.user?.id, lang);
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
-
-      // [SEO+] lấy defaults để render lại form khi lỗi
       const seoDefaults = await getSeoDefaults();
-
       res.status(400).render("posts/edit", {
         pageTitle: "Sửa bài viết",
         mode: "edit",
@@ -593,16 +594,14 @@ router.post(
           featured_url: req.body.featured_url || "",
         },
         categories,
-        selectedCategoryIds:
-          (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
         primaryCategoryId: req.body.primary_category_id || "",
         gallery: [],
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
-        // [SEO+]
-        seo: req.body.seo || null,
-        seoDefaults,
+        seo: req.body.seo || {},
+        seoDefaults
       });
     }
   }

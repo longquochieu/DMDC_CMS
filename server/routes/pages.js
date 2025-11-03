@@ -9,13 +9,11 @@ import { rebuildPageSubtreeFullPaths } from '../services/rebuild.js';
 import { buildFullPathForPage } from '../services/hierarchy.js';
 import { logActivity } from '../services/activity.js';
 import { getPagesTree } from '../services/tree.js';
-
-// [SEO+] dịch vụ SEO
 import { getSeo, saveSeo, getSeoDefaults } from '../services/seo.js';
 
 const router = express.Router();
 
-const TEMPLATES = ['default','landing','contact']; // có thể đọc từ settings sau
+const TEMPLATES = ['default','landing','contact'];
 
 function cleanHtml(input){
   const cfg = {
@@ -45,7 +43,17 @@ function cleanHtml(input){
   return sanitizeHtml(input||'', cfg);
 }
 
-/** ===== LIST (bảng 8 cột) ===== */
+function stripToText(html = "", max = 160) {
+  const t = (html || "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
+}
+
+/** ===== LIST ===== */
 router.get('/', requireAuth, async (req, res) => {
   const db = await getDb();
   const lang = await getSetting('default_language','vi');
@@ -68,7 +76,7 @@ router.get('/', requireAuth, async (req, res) => {
   res.render('pages/list', { pageTitle: 'Pages', rows, lang });
 });
 
-/** ===== TREE (drag & drop) ===== */
+/** ===== TREE ===== */
 router.get('/tree', requireAuth, async (req, res) => {
   const lang = await getSetting('default_language','vi');
   const tree = await getPagesTree(lang);
@@ -87,21 +95,26 @@ router.get('/new', requireRoles('admin','editor','author','contributor'), async 
     ORDER BY t.title
   `, lang);
 
-  // [SEO+] form trang mới: chưa có SEO → seo = null; lấy default để gợi ý
-  const seo = null;
   const seoDefaults = await getSeoDefaults();
+  const seoData = {
+    title: "",
+    description: "",
+    focus_keyword: "",
+    robots_index: "index",
+    robots_follow: "follow",
+    robots_advanced: "",
+    canonical: "",
+    schema_type: "",
+    schema_jsonld: "",
+    og_title: "",
+    og_description: "",
+    og_image: "",
+    twitter_title: "",
+    twitter_description: "",
+    twitter_image: ""
+  };
 
-  res.render('pages/edit', {
-    pageTitle:'New Page',
-    item:null,
-    parents,
-    lang,
-    error:null,
-    templates: TEMPLATES,
-    // [SEO+]
-    seo,
-    seoDefaults
-  });
+  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null, templates: TEMPLATES, seo: seoData, seoDefaults });
 });
 
 /** ===== NEW (submit) ===== */
@@ -121,42 +134,32 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
     );
 
     const idRow = await db.get('SELECT last_insert_rowid() AS id');
+    const pageId = idRow.id;
+
     await db.run(
       'INSERT INTO pages_translations(page_id,language,title,slug,content_html) VALUES(?,?,?,?,?)',
-      idRow.id, lang, title, theSlug, cleanHtml(content_html||'')
+      pageId, lang, title, theSlug, cleanHtml(content_html||'')
     );
 
-    const full = await buildFullPathForPage(idRow.id, lang);
-    await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, idRow.id, lang);
+    const full = await buildFullPathForPage(pageId, lang);
+    await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, pageId, lang);
 
-    // [SEO+] lưu SEO nếu form gửi kèm
-    if (req.body.seo) {
-      await saveSeo('page', idRow.id, req.body.seo, req.user?.id);
-    }
+    // SEO save (auto default nếu trống)
+    const seoForm = req.body.seo || {};
+    if (!seoForm.title) seoForm.title = title || "";
+    if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
+    await saveSeo('page', pageId, seoForm, req.user?.id, lang);
 
-    await logActivity(req.user.id, 'create', 'page', idRow.id);
+    await logActivity(req.user.id, 'create', 'page', pageId);
     res.redirect('/admin/pages');
   }catch(e){
-    const parents = await getDb().then(d => d.all(`
+    const parents = await db.all(`
       SELECT p.id, t.title
       FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
       WHERE p.deleted_at IS NULL ORDER BY t.title
-    `, lang));
-
-    // [SEO+] khi lỗi vẫn render lại defaults + dữ liệu người dùng nhập
+    `, lang);
     const seoDefaults = await getSeoDefaults();
-
-    res.render('pages/edit', {
-      pageTitle:'New Page',
-      item:null,
-      parents,
-      lang,
-      error:e.message,
-      templates: TEMPLATES,
-      // [SEO+]
-      seo: req.body.seo || null,
-      seoDefaults
-    });
+    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message, templates: TEMPLATES, seo: (req.body.seo||{}), seoDefaults });
   }
 });
 
@@ -181,21 +184,13 @@ router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), a
     WHERE p.id=?`, lang, id
   );
 
-  // [SEO+] đọc SEO hiện có + defaults
-  const seo = await getSeo('page', Number(id));
+  // SEO load + auto defaults
   const seoDefaults = await getSeoDefaults();
+  const seoData = (await getSeo('page', Number(id), lang)) || {};
+  if (!seoData.title) seoData.title = item?.title || "";
+  if (!seoData.description) seoData.description = stripToText(item?.content_html || "", 160);
 
-  res.render('pages/edit', {
-    pageTitle:'Edit Page',
-    item,
-    parents,
-    lang,
-    error:null,
-    templates: TEMPLATES,
-    // [SEO+]
-    seo,
-    seoDefaults
-  });
+  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null, templates: TEMPLATES, seo: seoData, seoDefaults });
 });
 
 /** ===== EDIT (submit) ===== */
@@ -224,10 +219,11 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
     const full = await buildFullPathForPage(id, lang);
     await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, id, lang);
 
-    // [SEO+] lưu SEO nếu form gửi kèm
-    if (req.body.seo) {
-      await saveSeo('page', Number(id), req.body.seo, req.user?.id);
-    }
+    // SEO save
+    const seoForm = req.body.seo || {};
+    if (!seoForm.title) seoForm.title = title || "";
+    if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
+    await saveSeo('page', Number(id), seoForm, req.user?.id, lang);
 
     await logActivity(req.user.id, 'update', 'page', id);
     res.redirect('/admin/pages');
@@ -245,25 +241,12 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
       LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
       WHERE p.id=?`, lang, id
     );
-
-    // [SEO+] khi lỗi: giữ dữ liệu người dùng vừa nhập + defaults
     const seoDefaults = await getSeoDefaults();
-
-    res.render('pages/edit', {
-      pageTitle:'Edit Page',
-      item,
-      parents,
-      lang,
-      error:e.message,
-      templates: TEMPLATES,
-      // [SEO+]
-      seo: req.body.seo || (await getSeo('page', Number(id))),
-      seoDefaults
-    });
+    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message, templates: TEMPLATES, seo: (req.body.seo||{}), seoDefaults });
   }
 });
 
-/** ===== REORDER (drag & drop) ===== */
+/** ===== REORDER ===== */
 router.post('/reorder', requireRoles('admin','editor'), async (req, res) => {
   const db = await getDb();
   let { node_id, new_parent_id, new_index, lang } = req.body;

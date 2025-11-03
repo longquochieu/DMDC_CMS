@@ -5,20 +5,25 @@ import { getDb } from "../utils/db.js";
 import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { getCategoriesTree } from "../services/categories_tree.js";
-
-// [SEO+] dịch vụ SEO (đã dùng cho posts/pages)
 import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
 
 const router = express.Router();
 
-/* =========================
- * LIST (BẢNG) – giống Pages list + có cột Đếm bài viết
- * ========================= */
+function stripToText(html = "", max = 160) {
+  const t = (html || "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
+}
+
+/* ===== LIST (Bảng) ===== */
 router.get('/', requireAuth, async (req, res) => {
   const db   = await getDb();
   const lang = await getSetting('default_language', 'vi');
 
-  // Lấy danh sách dạng bảng + tiêu đề cha + người tạo + đếm số bài viết thuộc category
   const rows = await db.all(`
     SELECT
       c.id,
@@ -55,9 +60,7 @@ router.get('/', requireAuth, async (req, res) => {
   });
 });
 
-/* =========================
- * TREE VIEW (giữ như cũ, chỉ trả dữ liệu tree)
- * ========================= */
+/* ===== TREE VIEW ===== */
 router.get('/tree', requireAuth, async (req, res) => {
   const db   = await getDb();
   const lang = await getSetting('default_language', 'vi');
@@ -74,7 +77,6 @@ router.get('/tree', requireAuth, async (req, res) => {
     ORDER BY c.parent_id, c.order_index, c.id
   `, [lang]);
 
-  // Build tree
   const byId = new Map();
   flat.forEach(r => byId.set(r.id, { id: r.id, title: r.title, slug: r.slug, children: [] }));
   const roots = [];
@@ -91,9 +93,7 @@ router.get('/tree', requireAuth, async (req, res) => {
   });
 });
 
-/* =========================
- * NEW
- * ========================= */
+/* ===== NEW ===== */
 router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
@@ -108,9 +108,24 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
     [lang]
   );
 
-  // [SEO+] form thêm mới: chưa có SEO → seo = null; kèm default để gợi ý
-  const seo = null;
   const seoDefaults = await getSeoDefaults();
+  const seoData = {
+    title: "",
+    description: "",
+    focus_keyword: "",
+    robots_index: "index",
+    robots_follow: "follow",
+    robots_advanced: "",
+    canonical: "",
+    schema_type: "",
+    schema_jsonld: "",
+    og_title: "",
+    og_description: "",
+    og_image: "",
+    twitter_title: "",
+    twitter_description: "",
+    twitter_image: ""
+  };
 
   return res.render("categories/edit", {
     pageTitle: "Thêm danh mục",
@@ -118,8 +133,7 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
     parents,
     error: null,
     csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-    // [SEO+]
-    seo,
+    seo: seoData,
     seoDefaults
   });
 });
@@ -129,7 +143,7 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
   const lang = await getSetting("default_language", "vi");
 
   try {
-    const { name, slug, parent_id, order_index } = req.body;
+    const { name, slug, parent_id, order_index, description_html } = req.body;
     const theName = (name || "").trim();
     if (!theName) throw new Error("Vui lòng nhập tên danh mục");
 
@@ -161,13 +175,15 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       [id, lang, theName, theSlug]
     );
 
-    // [SEO+] lưu SEO nếu form gửi kèm
-    if (req.body.seo) {
-      await saveSeo('category', Number(id), req.body.seo, req.user?.id);
-    }
+    // SEO save
+    const seoForm = req.body.seo || {};
+    if (!seoForm.title) seoForm.title = theName;
+    if (!seoForm.description) seoForm.description = stripToText(description_html || "", 160);
+    await saveSeo('category', id, seoForm, req.user?.id, lang);
 
     return res.redirect("/admin/categories");
   } catch (e) {
+    // ✅ FIX: dùng lại db + lang có sẵn, KHÔNG dùng await trong ngữ cảnh không async
     const parents = await db.all(
       `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
          FROM categories c
@@ -175,10 +191,8 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
            ON t.category_id = c.id AND t.language = ?
         WHERE c.deleted_at IS NULL
      ORDER BY name`,
-      [await getSetting("default_language", "vi")]
+      [lang]
     );
-
-    // [SEO+] khi lỗi: vẫn trả về defaults + dữ liệu người dùng gửi lên
     const seoDefaults = await getSeoDefaults();
 
     return res.render("categories/edit", {
@@ -187,16 +201,13 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       parents,
       error: e.message,
       csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-      // [SEO+]
-      seo: req.body.seo || null,
+      seo: (req.body.seo || {}),
       seoDefaults
     });
   }
 });
 
-/* =========================
- * EDIT
- * ========================= */
+/* ===== EDIT ===== */
 router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
@@ -223,9 +234,11 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
     [lang, id]
   );
 
-  // [SEO+] đọc SEO hiện có + defaults
-  const seo = await getSeo('category', id);
+  // SEO load + auto default
   const seoDefaults = await getSeoDefaults();
+  const seoData = (await getSeo('category', id, lang)) || {};
+  if (!seoData.title) seoData.title = item.name || "";
+  if (!seoData.description) seoData.description = ""; // categories thường không có content_html
 
   return res.render("categories/edit", {
     pageTitle: "Sửa danh mục",
@@ -233,8 +246,7 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
     parents,
     error: null,
     csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-    // [SEO+]
-    seo,
+    seo: seoData,
     seoDefaults
   });
 });
@@ -245,7 +257,7 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
   const id = Number(req.params.id);
 
   try {
-    const { name, slug, parent_id, order_index } = req.body;
+    const { name, slug, parent_id, order_index, description_html } = req.body;
     const theName = (name || "").trim();
     if (!theName) throw new Error("Vui lòng nhập tên danh mục");
 
@@ -289,10 +301,11 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       );
     }
 
-    // [SEO+] lưu SEO nếu form gửi kèm
-    if (req.body.seo) {
-      await saveSeo('category', id, req.body.seo, req.user?.id);
-    }
+    // SEO save
+    const seoForm = req.body.seo || {};
+    if (!seoForm.title) seoForm.title = theName;
+    if (!seoForm.description) seoForm.description = stripToText(description_html || "", 160);
+    await saveSeo('category', id, seoForm, req.user?.id, lang);
 
     return res.redirect("/admin/categories");
   } catch (e) {
@@ -314,8 +327,6 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
         WHERE c.id = ?`,
       [lang, id]
     );
-
-    // [SEO+] khi lỗi: giữ dữ liệu người dùng vừa nhập + defaults
     const seoDefaults = await getSeoDefaults();
 
     return res.render("categories/edit", {
@@ -324,16 +335,13 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       parents,
       error: e.message,
       csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-      // [SEO+]
-      seo: req.body.seo || (await getSeo('category', id)),
+      seo: (req.body.seo || {}),
       seoDefaults
     });
   }
 });
 
-/* =========================
- * REORDER (Drag & Drop)
- * ========================= */
+/* ===== REORDER ===== */
 router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const { node_id, new_parent_id, new_index } = req.body;
@@ -344,7 +352,6 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
   try {
     await db.run("BEGIN IMMEDIATE");
 
-    // Chặn vòng lặp: cha không được là chính nó/hoặc con cháu của nó
     if (parentId) {
       const stack = [parentId];
       while (stack.length) {
@@ -360,13 +367,11 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
       }
     }
 
-    // Cập nhật parent trước
     await db.run(
       `UPDATE categories SET parent_id = ? WHERE id = ?`,
       [parentId, nodeId]
     );
 
-    // Lấy siblings mới theo parent
     const siblings = await db.all(
       `SELECT id
          FROM categories
@@ -376,7 +381,6 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
       [parentId, parentId]
     );
 
-    // Dàn lại trật tự, chèn nodeId vào đúng vị trí targetIndex
     const arranged = [];
     const filtered = siblings.map(s => s.id).filter(id => id !== nodeId);
     for (let i = 0; i <= filtered.length; i++) {
@@ -396,9 +400,7 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
   }
 });
 
-/* =========================
- * TRASH
- * ========================= */
+/* ===== TRASH ===== */
 router.post("/:id/trash", requireRoles("admin"), async (req, res) => {
   const db = await getDb();
   const id = Number(req.params.id);

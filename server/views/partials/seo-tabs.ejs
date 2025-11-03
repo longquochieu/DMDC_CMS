@@ -1,0 +1,209 @@
+<!-- server/views/partials/seo-tabs.ejs -->
+<div class="card mt-3">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <strong>SEO</strong>
+  </div>
+  <div class="card-body">
+
+    <ul class="nav nav-tabs" id="seoTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="seo-basic-tab" data-bs-toggle="tab" data-bs-target="#seo-basic" type="button" role="tab">Cài đặt chung</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="seo-advanced-tab" data-bs-toggle="tab" data-bs-target="#seo-advanced" type="button" role="tab">Cài đặt nâng cao</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="seo-social-tab" data-bs-toggle="tab" data-bs-target="#seo-social" type="button" role="tab">Social</button>
+      </li>
+    </ul>
+
+    <div class="tab-content border-start border-end border-bottom p-3" id="seoTabsContent">
+
+      <!-- Tab 1: Cài đặt chung -->
+      <div class="tab-pane fade show active" id="seo-basic" role="tabpanel">
+        <div class="mb-3">
+          <label class="form-label">SEO Title</label>
+          <input type="text" class="form-control" id="seo_title" name="seo[title]" value="<%= (seo && seo.title) || '' %>" placeholder="Tối đa ~60 ký tự">
+          <div class="form-text">Mặc định lấy theo tiêu đề. Tự dừng auto khi bạn chỉnh tay.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Meta Description</label>
+          <textarea class="form-control" id="seo_description" name="seo[description]" rows="3" placeholder="Tối đa ~160 ký tự"><%= (seo && seo.description) || '' %></textarea>
+          <div class="form-text">Mặc định lấy tóm tắt nội dung. Tự dừng auto khi bạn chỉnh tay.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Focus Keyword</label>
+          <input type="text" class="form-control" name="seo[focus_keyword]" value="<%= (seo && seo.focus_keyword) || '' %>">
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Robots Index</label>
+            <select class="form-select" name="seo[robots_index]">
+              <option value="index" <%= (seo && seo.robots_index)==='index' ? 'selected' : '' %>>index</option>
+              <option value="noindex" <%= (seo && seo.robots_index)==='noindex' ? 'selected' : '' %>>noindex</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Robots Follow</label>
+            <select class="form-select" name="seo[robots_follow]">
+              <option value="follow" <%= (seo && seo.robots_follow)==='follow' ? 'selected' : '' %>>follow</option>
+              <option value="nofollow" <%= (seo && seo.robots_follow)==='nofollow' ? 'selected' : '' %>>nofollow</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Robots nâng cao</label>
+            <input type="text" class="form-control" name="seo[robots_advanced]" value="<%= (seo && seo.robots_advanced) || '' %>" placeholder="noarchive, nosnippet, …">
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Nâng cao -->
+      <div class="tab-pane fade" id="seo-advanced" role="tabpanel">
+        <div class="mb-3">
+          <label class="form-label">Canonical URL</label>
+          <input type="text" class="form-control" name="seo[canonical]" value="<%= (seo && seo.canonical) || '' %>">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Schema Type</label>
+          <input type="text" class="form-control" name="seo[schema_type]" value="<%= (seo && seo.schema_type) || '' %>" placeholder="Article, WebPage, Organization, …">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Schema JSON-LD</label>
+          <textarea class="form-control" name="seo[schema_jsonld]" rows="6" placeholder='{"@context":"https://schema.org","@type":"Article",...}'><%= (seo && seo.schema_jsonld) || '' %></textarea>
+        </div>
+      </div>
+
+      <!-- Tab 3: Social -->
+      <div class="tab-pane fade" id="seo-social" role="tabpanel">
+        <div class="row g-3">
+          <div class="col-md-12">
+            <h6 class="border-bottom pb-2">Facebook (Open Graph)</h6>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">OG Title</label>
+            <input type="text" class="form-control" name="seo[og_title]" value="<%= (seo && seo.og_title) || '' %>">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">OG Description</label>
+            <input type="text" class="form-control" name="seo[og_description]" value="<%= (seo && seo.og_description) || '' %>">
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">OG Image URL</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="seo_og_image" name="seo[og_image]" value="<%= (seo && seo.og_image) || '' %>" placeholder="https://...">
+              <button class="btn btn-outline-secondary" type="button" data-seo-pick="seo_og_image">Chọn ảnh (Media)</button>
+            </div>
+          </div>
+
+          <div class="col-md-12 mt-4">
+            <h6 class="border-bottom pb-2">Twitter</h6>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Twitter Title</label>
+            <input type="text" class="form-control" name="seo[twitter_title]" value="<%= (seo && seo.twitter_title) || '' %>">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Twitter Description</label>
+            <input type="text" class="form-control" name="seo[twitter_description]" value="<%= (seo && seo.twitter_description) || '' %>">
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Twitter Image URL</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="seo_twitter_image" name="seo[twitter_image]" value="<%= (seo && seo.twitter_image) || '' %>" placeholder="https://...">
+              <button class="btn btn-outline-secondary" type="button" data-seo-pick="seo_twitter_image">Chọn ảnh (Media)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  // ===== Auto-fill SEO Title/Description khi người dùng CHƯA sửa tay =====
+  var seoTitle = document.getElementById('seo_title');
+  var seoDesc  = document.getElementById('seo_description');
+  var titleInput = document.querySelector(<%- JSON.stringify(titleInputSelector || '#title') %>);
+
+  var titleDirty = !!(seoTitle && seoTitle.value && seoTitle.value.trim() !== '');
+  var descDirty  = !!(seoDesc && seoDesc.value && seoDesc.value.trim() !== '');
+
+  if (seoTitle) {
+    seoTitle.addEventListener('input', function(){ titleDirty = true; });
+  }
+  if (seoDesc) {
+    seoDesc.addEventListener('input', function(){ descDirty = true; });
+  }
+
+  if (titleInput && seoTitle && !titleDirty) {
+    titleInput.addEventListener('input', function(e){
+      if (!titleDirty) {
+        seoTitle.value = (e.target.value || '').trim();
+      }
+    });
+  }
+
+  // Lấy text content từ Quill nếu có; fallback từ textarea[name=content_html]
+  function getEditorPlainText() {
+    try {
+      if (window[<%- JSON.stringify(quillVar || 'quill') %>]) {
+        return window[<%- JSON.stringify(quillVar || 'quill') %>].getText().trim();
+      }
+    } catch (e){}
+    var ta = document.querySelector('textarea[name="content_html"]');
+    if (ta) {
+      var tmp = document.createElement('div'); tmp.innerHTML = ta.value || '';
+      return (tmp.textContent || tmp.innerText || '').replace(/\s+/g,' ').trim();
+    }
+    return '';
+  }
+
+  function updateDescIfNeeded() {
+    if (!seoDesc || descDirty) return;
+    var txt = getEditorPlainText();
+    if (!txt) return;
+    if (txt.length > 160) txt = txt.slice(0,159).trim() + '…';
+    seoDesc.value = txt;
+  }
+
+  // Khi nội dung thay đổi
+  try {
+    if (window[<%- JSON.stringify(quillVar || 'quill') %>]) {
+      window[<%- JSON.stringify(quillVar || 'quill') %>].on('text-change', function(){ updateDescIfNeeded(); });
+    }
+  } catch(e){}
+
+  // Lúc load ban đầu
+  updateDescIfNeeded();
+
+  // ===== Nút chọn ảnh từ Media cho OG/Twitter =====
+  function openMediaForInput(inputId) {
+    // Tối giản: tái dùng modal/logic của bạn nếu đã có. Nếu chưa có, có thể prompt URL tạm thời.
+    if (window.openMediaPicker) {
+      window.openMediaPicker(function(url){
+        var ip = document.getElementById(inputId);
+        if (ip) ip.value = url || '';
+      });
+    } else {
+      var u = prompt('Dán URL ảnh:');
+      if (u) {
+        var ip = document.getElementById(inputId);
+        if (ip) ip.value = u;
+      }
+    }
+  }
+
+  document.querySelectorAll('[data-seo-pick]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = btn.getAttribute('data-seo-pick');
+      if (id) openMediaForInput(id);
+    });
+  });
+})();
+</script>
