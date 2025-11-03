@@ -1,282 +1,383 @@
 // server/services/seo.js
 import { getDb } from "../utils/db.js";
+import { getSetting } from "./settings.js";
 
-/** =========================================================
- *  Cache schema seo_meta (dò cột tồn tại)
- * ========================================================= */
-let _seoCols = null;
-async function getSeoMetaColumns() {
-  if (_seoCols) return _seoCols;
-  const db = await getDb();
-  try {
-    const rows = await db.all(`PRAGMA table_info(seo_meta)`);
-    const names = new Set(rows.map(r => r.name));
-    _seoCols = names;
-  } catch {
-    _seoCols = new Set();
-  }
-  return _seoCols;
-}
-async function hasCol(name) {
-  const cols = await getSeoMetaColumns();
-  return cols.has(name);
-}
+/* ------------------ Defaults & small helpers ------------------ */
 
-/** =========================================================
- *  Defaults (chuẩn RankMath tối thiểu)
- * ========================================================= */
-export function getSeoDefaults() {
-  return {
-    // Basic
-    title: "",
-    description: "",
-    focus_keyword: "",
-
-    // Robots
-    robots_index: "index",
-    robots_follow: "follow",
-    robots_advanced: "",
-
-    // Advanced
-    canonical: "",
-    schema_type: "",
-    schema_jsonld: "",
-
-    // Social
-    og_title: "",
-    og_description: "",
-    og_image: "",
-    twitter_title: "",
-    twitter_description: "",
-    twitter_image: "",
-  };
-}
-
-/** =========================================================
- *  Lấy SEO theo entity (chịu được bảng có/không cột language)
- *  - Trả về object đã merge defaults để view không lỗi
- * ========================================================= */
-export async function getSeo(entityType, entityId, language = "vi") {
-  const db = await getDb();
-  const cols = await getSeoMetaColumns();
-
-  // Quyết định điều kiện WHERE dựa vào cột có/không
-  const where = ["entity_type = ?", "entity_id = ?"];
-  const params = [entityType, entityId];
-  if (cols.has("language")) {
-    where.push("language = ?");
-    params.push(language);
-  }
-
-  // SELECT * để không nêu đích danh cột (tránh thiếu cột)
-  const row = await db.get(
-    `SELECT * FROM seo_meta WHERE ${where.join(" AND ")} LIMIT 1`,
-    params
-  );
-
-  const defaults = getSeoDefaults();
-  if (!row) return defaults;
-
-  // Chỉ lấy các key mà view/logic quan tâm; key không có trong row thì giữ defaults
-  const out = { ...defaults };
-  for (const k of Object.keys(defaults)) {
-    if (k in row && row[k] != null) out[k] = String(row[k]);
-  }
+/** Đọc default SEO settings (có fallback) */
+export async function getSeoDefaults() {
+  const keys = [
+    "site_url",
+    "seo_title_pattern_post",
+    "seo_title_pattern_page",
+    "seo_title_pattern_category",
+    "seo_meta_desc_max",
+    "seo_default_index",
+    "seo_default_follow",
+    "seo_robots_advanced",
+    "seo_og_default_title",
+    "seo_og_default_description",
+    "seo_og_default_image_url",
+    "seo_twitter_card_type",
+    "seo_twitter_default_title",
+    "seo_twitter_default_description",
+    "seo_twitter_default_image_url",
+    "seo_sitemap_enabled",
+    "seo_schema_default_type",
+    "seo_schema_default_jsonld",
+  ];
+  const out = {};
+  for (const k of keys) out[k] = await getSetting(k, "");
+  if (!out.site_url) out.site_url = "http://localhost:5000";
+  if (!out.seo_meta_desc_max) out.seo_meta_desc_max = "160";
+  if (!out.seo_default_index) out.seo_default_index = "index";
+  if (!out.seo_default_follow) out.seo_default_follow = "follow";
+  if (!out.seo_twitter_card_type) out.seo_twitter_card_type = "summary_large_image";
+  if (!out.seo_sitemap_enabled) out.seo_sitemap_enabled = "1";
   return out;
 }
 
-/** =========================================================
- *  Suy luận ảnh Social (ưu tiên Featured → ảnh đầu tiên trong content)
- * ========================================================= */
-async function getEntityMediaContext(entityType, entityId, language = "vi") {
-  const db = await getDb();
+/** Lấy tên site (để thế %site% trong pattern) */
+async function getSiteName() {
+  // tuỳ hệ thống bạn đang lưu ở settings key nào
+  const siteName = await getSetting("site_name", "");
+  if (siteName) return siteName;
+  const siteTitle = await getSetting("site_title", "");
+  if (siteTitle) return siteTitle;
+  const url = await getSetting("site_url", "Website");
+  try {
+    const u = new URL(url);
+    return u.hostname;
+  } catch {
+    return "Website";
+  }
+}
 
+/** Tìm ảnh đầu tiên trong HTML */
+export function findFirstImageInHtml(html = "") {
+  if (!html) return "";
+  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : "";
+}
+
+/** Loại bỏ HTML + cắt theo độ dài tối đa */
+export function stripHtmlAndTruncate(html = "", maxLen = 160) {
+  const text = (html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1).trim() + "…";
+}
+
+/** PRAGMA kiểm tra cột có tồn tại không (cache nhẹ) */
+const _tableInfoCache = new Map();
+async function columnExists(db, table, column) {
+  const key = `${table}::${column}`;
+  if (_tableInfoCache.has(key)) return _tableInfoCache.get(key);
+  const rows = await db.all(`PRAGMA table_info(${table})`);
+  const ok = rows.some((r) => String(r.name).toLowerCase() === String(column).toLowerCase());
+  _tableInfoCache.set(key, ok);
+  return ok;
+}
+
+/* ------------------ Social image picking (ưu tiên ảnh đại diện) ------------------ */
+
+/**
+ * Chọn ảnh OG/Twitter:
+ * - Post: ưu tiên media_usages(field='featured') → ảnh đầu tiên trong content_html → ảnh default
+ * - Page: ưu tiên pages.featured_media_id → ảnh đầu tiên trong content_html → ảnh default
+ * - Category: ảnh đầu tiên trong content_html → ảnh default
+ */
+export async function pickSocialImageForEntity(db, entityType, entityId, defaults) {
   if (entityType === "post") {
     const featured = await db.get(
-      `SELECT m.url AS url
+      `SELECT m.url
          FROM media_usages mu
          JOIN media m ON m.id = mu.media_id
-        WHERE mu.post_id = ? AND mu.field = 'featured'
-        ORDER BY mu.position
-        LIMIT 1`,
-      [entityId]
+        WHERE mu.field = 'featured' AND mu.post_id = ?
+        ORDER BY mu.position LIMIT 1`,
+      entityId
     );
-    const t = await db.get(
-      `SELECT content_html FROM posts_translations WHERE post_id = ? AND language = ? LIMIT 1`,
-      [entityId, language]
+    if (featured?.url) return featured.url;
+
+    const row = await db.get(
+      `SELECT t.content_html
+         FROM posts_translations t
+        WHERE t.post_id = ? LIMIT 1`,
+      entityId
     );
-    return { featuredUrl: featured?.url || "", contentHtml: t?.content_html || "" };
+    const first = findFirstImageInHtml(row?.content_html || "");
+    if (first) return first;
   }
 
   if (entityType === "page") {
-    const featured = await db.get(
-      `SELECT m.url AS url
-         FROM pages p
-         LEFT JOIN media m ON m.id = p.featured_media_id
-        WHERE p.id = ?
-        LIMIT 1`,
-      [entityId]
+    const f = await db.get(
+      `SELECT m.url
+         FROM pages p LEFT JOIN media m ON m.id = p.featured_media_id
+        WHERE p.id = ?`,
+      entityId
     );
-    const t = await db.get(
-      `SELECT content_html FROM pages_translations WHERE page_id = ? AND language = ? LIMIT 1`,
-      [entityId, language]
+    if (f?.url) return f.url;
+
+    const row = await db.get(
+      `SELECT t.content_html
+         FROM pages_translations t
+        WHERE t.page_id = ? LIMIT 1`,
+      entityId
     );
-    return { featuredUrl: featured?.url || "", contentHtml: t?.content_html || "" };
+    const first = findFirstImageInHtml(row?.content_html || "");
+    if (first) return first;
   }
 
-  // Category: hiện tại chưa có featured/content mặc định
-  return { featuredUrl: "", contentHtml: "" };
-}
-function extractFirstImage(html = "") {
-  const re = /<img[^>]+src=["']([^"']+)["']/i;
-  const m = re.exec(html || "");
-  return m ? (m[1] || "").trim() : "";
-}
-function inferSocialImage({ featuredUrl, contentHtml }) {
-  if (featuredUrl && featuredUrl.trim()) return featuredUrl.trim();
-  const fromContent = extractFirstImage(contentHtml);
-  return (fromContent || "").trim();
-}
-function norm(v) {
-  if (v == null) return null;
-  const s = String(v).trim();
-  return s.length ? s : null;
+  if (entityType === "category") {
+    const row = await db.get(
+      `SELECT t.content_html
+         FROM categories_translations t
+        WHERE t.category_id = ? LIMIT 1`,
+      entityId
+    );
+    const first = findFirstImageInHtml(row?.content_html || "");
+    if (first) return first;
+  }
+
+  return defaults.seo_og_default_image_url || "";
 }
 
-/** =========================================================
- *  Upsert SEO (tự dò cột có trong bảng rồi build SQL động)
- *  - Không crash nếu bảng thiếu cột (vd: description/language)
- *  - Ảnh social auto lấy Featured → ảnh đầu tiên trong nội dung (nếu user không nhập)
- * ========================================================= */
-export async function saveSeo(entityType, entityId, seoForm, userId = null, language = "vi") {
+/* ------------------ Main: getSeo / saveSeo ------------------ */
+
+/**
+ * Đọc SEO cho 1 entity. Nếu chưa có trong bảng seo_meta → sinh mặc định
+ * Trả về object đã “điền sẵn”:
+ * {
+ *   title, meta_description, focus_keyword,
+ *   robots_index, robots_follow, robots_advanced,
+ *   canonical_url,
+ *   schema_type, schema_jsonld,
+ *   og_title, og_description, og_image_url,
+ *   twitter_title, twitter_description, twitter_image_url
+ * }
+ */
+export async function getSeo(entityType, entityId, lang = "vi") {
   const db = await getDb();
-  const cols = await getSeoMetaColumns();
+  const defaults = await getSeoDefaults();
 
-  // Bản chuẩn hóa input
-  const seo = {
-    title: norm(seoForm.title),
-    description: norm(seoForm.description),
-    focus_keyword: norm(seoForm.focus_keyword),
-    robots_index: norm(seoForm.robots_index) || "index",
-    robots_follow: norm(seoForm.robots_follow) || "follow",
-    robots_advanced: norm(seoForm.robots_advanced),
-    canonical: norm(seoForm.canonical),
-    schema_type: norm(seoForm.schema_type),
-    schema_jsonld: norm(seoForm.schema_jsonld),
-    og_title: norm(seoForm.og_title),
-    og_description: norm(seoForm.og_description),
-    og_image: norm(seoForm.og_image),
-    twitter_title: norm(seoForm.twitter_title),
-    twitter_description: norm(seoForm.twitter_description),
-    twitter_image: norm(seoForm.twitter_image),
-  };
-
-  // Suy luận OG/Twitter image nếu user để trống
-  if ((!seo.og_image || !seo.twitter_image) && (await hasCol("og_image") || await hasCol("twitter_image"))) {
-    const ctx = await getEntityMediaContext(entityType, entityId, language);
-    const inferred = inferSocialImage(ctx);
-    if (!seo.og_image && inferred) seo.og_image = inferred;
-    if (!seo.twitter_image && (seo.og_image || inferred)) {
-      seo.twitter_image = seo.og_image || inferred;
+  // 1) cố lấy từ seo_meta (ưu tiên có language)
+  let row = null;
+  try {
+    row = await db.get(
+      `SELECT * FROM seo_meta WHERE entity_type=? AND entity_id=? AND language=? LIMIT 1`,
+      entityType, entityId, lang
+    );
+  } catch (e) {
+    if (/no such column:\s*language/i.test(String(e.message))) {
+      row = await db.get(
+        `SELECT * FROM seo_meta WHERE entity_type=? AND entity_id=? LIMIT 1`,
+        entityType, entityId
+      );
+    } else {
+      throw e;
     }
   }
 
-  // Xác định cặp khóa
-  const where = ["entity_type = ?", "entity_id = ?"];
-  const whereParams = [entityType, entityId];
-  if (cols.has("language")) {
-    where.push("language = ?");
-    whereParams.push(language);
+  // 2) Nếu có, return (chuẩn hoá tên trường mô tả cho đồng nhất)
+  if (row) {
+    // Map description/meta_description về meta_description
+    if (row.description && !row.meta_description) {
+      row.meta_description = row.description;
+    }
+    return row;
   }
 
-  // Kiểm tra tồn tại
-  const existed = await db.get(
-    `SELECT id FROM seo_meta WHERE ${where.join(" AND ")} LIMIT 1`,
-    whereParams
-  );
+  // 3) Auto-fill mặc định từ nội dung entity
+  const site = await getSiteName();
+  const maxDesc = Number(defaults.seo_meta_desc_max || 160);
 
-  // Mapping field → column (ở đây trùng tên; nếu DB bạn dùng tên khác, đổi từng key tại đây)
-  const fieldToCol = {
-    title: "title",
-    description: "description",
-    focus_keyword: "focus_keyword",
-    robots_index: "robots_index",
-    robots_follow: "robots_follow",
-    robots_advanced: "robots_advanced",
-    canonical: "canonical",
-    schema_type: "schema_type",
-    schema_jsonld: "schema_jsonld",
-    og_title: "og_title",
-    og_description: "og_description",
-    og_image: "og_image",
-    twitter_title: "twitter_title",
-    twitter_description: "twitter_description",
-    twitter_image: "twitter_image",
+  // Lấy tiêu đề & nội dung thô
+  let baseTitle = "";
+  let html = "";
+  if (entityType === "post") {
+    const t = await db.get(
+      `SELECT title, content_html FROM posts_translations WHERE post_id=? AND language=?`,
+      entityId, lang
+    ).catch(async (e) => {
+      // fallback không ngôn ngữ
+      return await db.get(
+        `SELECT title, content_html FROM posts_translations WHERE post_id=? LIMIT 1`,
+        entityId
+      );
+    });
+    baseTitle = t?.title || "";
+    html = t?.content_html || "";
+  } else if (entityType === "page") {
+    const t = await db.get(
+      `SELECT title, content_html FROM pages_translations WHERE page_id=? AND language=?`,
+      entityId, lang
+    ).catch(async () => {
+      return await db.get(
+        `SELECT title, content_html FROM pages_translations WHERE page_id=? LIMIT 1`,
+        entityId
+      );
+    });
+    baseTitle = t?.title || "";
+    html = t?.content_html || "";
+  } else if (entityType === "category") {
+    const t = await db.get(
+      `SELECT name AS title, content_html FROM categories_translations WHERE category_id=? AND language=?`,
+      entityId, lang
+    ).catch(async () => {
+      return await db.get(
+        `SELECT name AS title, content_html FROM categories_translations WHERE category_id=? LIMIT 1`,
+        entityId
+      );
+    });
+    baseTitle = t?.title || "";
+    html = t?.content_html || "";
+  }
+
+  // Pattern theo loại
+  let pattern = "%title% | %site%";
+  if (entityType === "post" && defaults.seo_title_pattern_post) pattern = defaults.seo_title_pattern_post;
+  if (entityType === "page" && defaults.seo_title_pattern_page) pattern = defaults.seo_title_pattern_page;
+  if (entityType === "category" && defaults.seo_title_pattern_category) pattern = defaults.seo_title_pattern_category;
+
+  const seoTitle = (pattern || "%title% | %site%")
+    .replace(/%title%/g, baseTitle || "")
+    .replace(/%site%/g, site || "");
+
+  const metaDesc = stripHtmlAndTruncate(html || "", maxDesc);
+  const socialImage = await pickSocialImageForEntity(db, entityType, entityId, defaults);
+
+  return {
+    title: seoTitle,
+    meta_description: metaDesc,
+    focus_keyword: "",
+    robots_index: defaults.seo_default_index || "index",
+    robots_follow: defaults.seo_default_follow || "follow",
+    robots_advanced: defaults.seo_robots_advanced || "",
+    canonical_url: "",
+    schema_type: defaults.seo_schema_default_type || "",
+    schema_jsonld: defaults.seo_schema_default_jsonld || "",
+    og_title: defaults.seo_og_default_title || seoTitle,
+    og_description: defaults.seo_og_default_description || metaDesc,
+    og_image_url: socialImage || defaults.seo_og_default_image_url || "",
+    twitter_title: defaults.seo_twitter_default_title || seoTitle,
+    twitter_description: defaults.seo_twitter_default_description || metaDesc,
+    twitter_image_url: socialImage || defaults.seo_twitter_default_image_url || "",
   };
+}
 
-  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+/**
+ * Lưu (upsert) SEO cho entity. Tự động thích nghi:
+ * - có/không có cột language
+ * - bảng dùng meta_description hay description
+ * data có thể gồm:
+ * {
+ *   title, meta_description (hoặc description), focus_keyword,
+ *   robots_index, robots_follow, robots_advanced,
+ *   canonical_url,
+ *   schema_type, schema_jsonld,
+ *   og_title, og_description, og_image_url,
+ *   twitter_title, twitter_description, twitter_image_url
+ * }
+ */
+export async function saveSeo(entityType, entityId, lang, data = {}) {
+  const db = await getDb();
 
-  if (existed) {
-    // ===== UPDATE động =====
-    const sets = [];
-    const params = [];
-    for (const [k, col] of Object.entries(fieldToCol)) {
-      if (await hasCol(col)) {
-        sets.push(`${col} = ?`);
-        params.push(seo[k]);
-      }
-    }
-    if (await hasCol("updated_at")) {
-      sets.push("updated_at = ?");
-      params.push(now);
-    }
-    if (await hasCol("updated_by")) {
-      sets.push("updated_by = ?");
-      params.push(userId);
-    }
+  // Kiểm tra cột tồn tại để map động
+  const hasLanguage = await columnExists(db, "seo_meta", "language");
+  const hasMetaDescription = await columnExists(db, "seo_meta", "meta_description");
+  const hasDescription = await columnExists(db, "seo_meta", "description");
 
-    if (sets.length) {
-      await db.run(
-        `UPDATE seo_meta SET ${sets.join(", ")} WHERE ${where.join(" AND ")}`,
-        [...params, ...whereParams]
+  // Chuẩn hoá tên trường mô tả
+  const payload = { ...data };
+  if (!payload.meta_description && payload.description) {
+    payload.meta_description = payload.description;
+  }
+
+  // Tập cột “ứng viên” (tùy bảng có cột nào sẽ set cột đó)
+  const candidateCols = [
+    "title",
+    "meta_description", // hoặc description
+    "focus_keyword",
+    "robots_index",
+    "robots_follow",
+    "robots_advanced",
+    "canonical_url",
+    "schema_type",
+    "schema_jsonld",
+    "og_title",
+    "og_description",
+    "og_image_url",
+    "twitter_title",
+    "twitter_description",
+    "twitter_image_url",
+  ];
+
+  // Xây map cột thực sự có trong DB
+  const colsToUse = [];
+  for (const col of candidateCols) {
+    if (col === "meta_description") {
+      if (hasMetaDescription) colsToUse.push("meta_description");
+      else if (hasDescription) colsToUse.push("description");
+      continue;
+    }
+    if (await columnExists(db, "seo_meta", col)) {
+      colsToUse.push(col);
+    }
+  }
+
+  // Kiểm tra tồn tại dòng
+  let existing = null;
+  try {
+    if (hasLanguage) {
+      existing = await db.get(
+        `SELECT id FROM seo_meta WHERE entity_type=? AND entity_id=? AND language=? LIMIT 1`,
+        entityType, entityId, lang
+      );
+    } else {
+      existing = await db.get(
+        `SELECT id FROM seo_meta WHERE entity_type=? AND entity_id=? LIMIT 1`,
+        entityType, entityId
       );
     }
-  } else {
-    // ===== INSERT động =====
-    const colsList = [];
-    const valsList = [];
-    const params = [];
-
-    // Khóa
-    if (await hasCol("entity_type")) { colsList.push("entity_type"); valsList.push("?"); params.push(entityType); }
-    if (await hasCol("entity_id"))   { colsList.push("entity_id");   valsList.push("?"); params.push(entityId); }
-    if (await hasCol("language"))    { colsList.push("language");    valsList.push("?"); params.push(language); }
-
-    // Data
-    for (const [k, col] of Object.entries(fieldToCol)) {
-      if (await hasCol(col)) {
-        colsList.push(col);
-        valsList.push("?");
-        params.push(seo[k]);
-      }
-    }
-
-    // Audit
-    if (await hasCol("created_at")) { colsList.push("created_at"); valsList.push("?"); params.push(now); }
-    if (await hasCol("created_by")) { colsList.push("created_by"); valsList.push("?"); params.push(userId); }
-    if (await hasCol("updated_at")) { colsList.push("updated_at"); valsList.push("?"); params.push(now); }
-    if (await hasCol("updated_by")) { colsList.push("updated_by"); valsList.push("?"); params.push(userId); }
-
-    if (colsList.length === 0) {
-      // Bảng seo_meta không có cột nào khả dụng → báo lỗi rõ ràng để bạn tạo schema
-      throw new Error("Bảng seo_meta không có cột phù hợp để lưu. Vui lòng bổ sung schema.");
-    }
-
-    await db.run(
-      `INSERT INTO seo_meta (${colsList.join(", ")}) VALUES (${valsList.join(", ")})`,
-      params
-    );
+  } catch (e) {
+    // nếu bảng chưa đúng, ném lỗi ra để dev biết
+    throw e;
   }
 
-  return true;
+  if (existing) {
+    // UPDATE
+    const sets = [];
+    const vals = [];
+    for (const col of colsToUse) {
+      // map meta_description -> description nếu cần
+      const payloadKey = (col === "description" ? "meta_description" : col);
+      sets.push(`${col} = ?`);
+      vals.push(payload[payloadKey] ?? "");
+    }
+    let sql = `UPDATE seo_meta SET ${sets.join(", ")}, updated_at=CURRENT_TIMESTAMP WHERE entity_type=? AND entity_id=?`;
+    vals.push(entityType, entityId);
+    if (hasLanguage) {
+      sql += ` AND language=?`;
+      vals.push(lang);
+    }
+    await db.run(sql, ...vals);
+  } else {
+    // INSERT
+    const cols = ["entity_type", "entity_id"];
+    const placeholders = ["?", "?"];
+    const vals = [entityType, entityId];
+
+    if (hasLanguage) {
+      cols.push("language");
+      placeholders.push("?");
+      vals.push(lang);
+    }
+    for (const col of colsToUse) {
+      cols.push(col);
+      placeholders.push("?");
+      const payloadKey = (col === "description" ? "meta_description" : col);
+      vals.push(payload[payloadKey] ?? "");
+    }
+    const sql = `INSERT INTO seo_meta(${cols.join(",")}) VALUES(${placeholders.join(",")})`;
+    await db.run(sql, ...vals);
+  }
 }

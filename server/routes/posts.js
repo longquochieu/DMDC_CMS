@@ -6,7 +6,8 @@ import { getDb } from "../utils/db.js";
 import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { formatUtcToTZ, localToUtcSql } from "../utils/time.js";
-import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
+// ➕ SEO service (đã thêm)
+import { getSeo, getSeoDefaults } from "../services/seo.js";
 
 const router = express.Router();
 
@@ -63,14 +64,38 @@ function cleanHtml(input) {
   return sanitizeHtml(input || "", cfg);
 }
 
-function stripToText(html = "", max = 160) {
-  const t = (html || "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<\/?[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
+function coerceArray(val) {
+  if (val == null) return [];
+  return Array.isArray(val) ? val : [val];
+}
+
+function buildGalleryFromBody(body) {
+  const raw =
+    body["gallery_urls[]"] ??
+    (Array.isArray(body.gallery_urls) ? body.gallery_urls : body.gallery_urls);
+  const urls = coerceArray(raw).filter(Boolean);
+  return urls.map((u) => ({ id: null, url: u }));
+}
+
+// ➕ Giữ lại giá trị SEO đã nhập khi form lỗi
+function extractSeoFromBody(body) {
+  return {
+    title: body.seo_title || "",
+    description: body.seo_description || "",
+    focus_keyword: body.seo_focus_keyword || "",
+    robots_index: body.seo_robots_index || "",
+    robots_follow: body.seo_robots_follow || "",
+    robots_advanced: body.seo_robots_advanced || "",
+    canonical_url: body.seo_canonical_url || "",
+    schema_type: body.seo_schema_type || "",
+    schema_jsonld: body.seo_schema_jsonld || "",
+    og_title: body.seo_og_title || "",
+    og_description: body.seo_og_description || "",
+    og_image_url: body.seo_og_image_url || "",
+    twitter_title: body.seo_twitter_title || "",
+    twitter_description: body.seo_twitter_description || "",
+    twitter_image_url: body.seo_twitter_image_url || "",
+  };
 }
 
 async function getCategoriesIndented(db, lang) {
@@ -84,12 +109,14 @@ async function getCategoriesIndented(db, lang) {
      ORDER BY COALESCE(c.parent_id, 0), c.order_index, c.id`,
     lang
   );
+
   const byParent = new Map();
   rows.forEach((r) => {
     const k = r.parent_id || 0;
     if (!byParent.has(k)) byParent.set(k, []);
     byParent.get(k).push(r);
   });
+
   const out = [];
   const dfs = (pid, depth) => {
     const list = byParent.get(pid || 0) || [];
@@ -146,6 +173,7 @@ async function getPostRow(db, id, lang) {
       id
     );
   } catch {}
+
   return { item, selectedIds, primaryCat, gallery };
 }
 
@@ -153,7 +181,10 @@ async function upsertFeaturedByUrl(db, postId, url) {
   if (!url) return;
   const media = await db.get(`SELECT id FROM media WHERE url = ? LIMIT 1`, url);
   if (!media) return;
-  await db.run(`DELETE FROM media_usages WHERE post_id = ? AND field = 'featured'`, postId);
+  await db.run(
+    `DELETE FROM media_usages WHERE post_id = ? AND field = 'featured'`,
+    postId
+  );
   await db.run(
     `INSERT INTO media_usages(post_id, media_id, field, position) VALUES(?,?, 'featured', 0)`,
     postId,
@@ -162,11 +193,17 @@ async function upsertFeaturedByUrl(db, postId, url) {
 }
 
 async function replaceGalleryByUrls(db, postId, urls = []) {
-  await db.run(`DELETE FROM media_usages WHERE post_id = ? AND field = 'gallery'`, postId);
+  await db.run(
+    `DELETE FROM media_usages WHERE post_id = ? AND field = 'gallery'`,
+    postId
+  );
   if (!urls || !urls.length) return;
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
-    const media = await db.get(`SELECT id FROM media WHERE url = ? LIMIT 1`, url);
+    const media = await db.get(
+      `SELECT id FROM media WHERE url = ? LIMIT 1`,
+      url
+    );
     if (media) {
       await db.run(
         `INSERT INTO media_usages(post_id, media_id, field, position) VALUES(?,?, 'gallery', ?)`,
@@ -266,31 +303,23 @@ router.get(
     const db = await getDb();
     const lang = await getSetting("default_language", "vi");
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
+
     const categories = await getCategoriesIndented(db, lang);
 
     const now = new Date();
     const nowUtcSql = `${now.toISOString().slice(0, 19).replace("T", " ")}`;
-    const nowLocal = formatUtcToTZ(nowUtcSql, tz, "yyyy-MM-dd HH:mm").replace(" ", "T");
+    const nowLocal = formatUtcToTZ(nowUtcSql, tz, "yyyy-MM-dd HH:mm").replace(
+      " ",
+      "T"
+    );
 
-    // SEO defaults (new): để trống; UI tự động fill từ tiêu đề/nội dung khi người dùng nhập
-    const seoDefaults = await getSeoDefaults();
-    const seoData = {
-      title: "",
-      description: "",
-      focus_keyword: "",
-      robots_index: "index",
-      robots_follow: "follow",
-      robots_advanced: "",
-      canonical: "",
-      schema_type: "",
-      schema_jsonld: "",
-      og_title: "",
-      og_description: "",
-      og_image: "",
-      twitter_title: "",
-      twitter_description: "",
-      twitter_image: ""
-    };
+    // ➕ SEO defaults cho Post
+    let seoDefaults = {};
+    try {
+      seoDefaults = (await getSeoDefaults("post")) || {};
+    } catch {
+      seoDefaults = {};
+    }
 
     res.render("posts/edit", {
       pageTitle: "Tạo bài viết",
@@ -303,8 +332,9 @@ router.get(
       created_at_local: nowLocal,
       scheduled_at_local: "",
       error: null,
-      seo: seoData,
-      seoDefaults
+      // ➕ truyền vào để partial không lỗi
+      seo: {},
+      seoDefaults,
     });
   }
 );
@@ -317,6 +347,14 @@ router.post(
     const lang = await getSetting("default_language", "vi");
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
 
+    // ➕ Lấy defaults để render lại khi lỗi
+    let seoDefaults = {};
+    try {
+      seoDefaults = (await getSeoDefaults("post")) || {};
+    } catch {
+      seoDefaults = {};
+    }
+
     try {
       const {
         title,
@@ -328,16 +366,47 @@ router.post(
         featured_url,
       } = req.body;
 
-      let category_ids = req.body["category_ids[]"] || req.body.category_ids || [];
-      if (!Array.isArray(category_ids)) category_ids = [category_ids].filter(Boolean);
+      let category_ids =
+        req.body["category_ids[]"] || req.body.category_ids || [];
+      if (!Array.isArray(category_ids))
+        category_ids = [category_ids].filter(Boolean);
 
       let primary_category_id =
         req.body.primary_category_id ||
-        (category_ids.length ? String(category_ids[category_ids.length - 1]) : "");
+        (category_ids.length
+          ? String(category_ids[category_ids.length - 1])
+          : "");
 
       if (category_ids.length === 0) {
-        throw new Error("Bạn chưa chọn danh mục, vui lòng chọn.");
+        const categories = await getCategoriesIndented(db, lang);
+        return res.status(400).render("posts/edit", {
+          pageTitle: "Tạo bài viết",
+          mode: "create",
+          item: {
+            title,
+            slug,
+            status,
+            content_html,
+            featured_url: featured_url || "",
+          },
+          categories,
+          selectedCategoryIds: (req.body["category_ids[]"] ||
+            req.body.category_ids ||
+            []
+          )
+            .map(String)
+            .filter(Boolean),
+          primaryCategoryId: req.body.primary_category_id || "",
+          gallery: buildGalleryFromBody(req.body),
+          created_at_local: created_at_local || "",
+          scheduled_at_local: scheduled_at_local || "",
+          error: "Bạn chưa chọn danh mục, vui lòng chọn.",
+          // ➕ giữ lại SEO người dùng nhập
+          seo: extractSeoFromBody(req.body),
+          seoDefaults,
+        });
       }
+
       if (category_ids.length > 1 && !primary_category_id) {
         primary_category_id = String(category_ids[category_ids.length - 1]);
       }
@@ -348,12 +417,63 @@ router.post(
       let scheduledUtc = null;
       if (status === "scheduled") {
         if (!scheduled_at_local) {
-          throw new Error("Vui lòng chọn thời điểm lên lịch đăng (trong tương lai).");
+          const categories = await getCategoriesIndented(db, lang);
+          return res.status(400).render("posts/edit", {
+            pageTitle: "Tạo bài viết",
+            mode: "create",
+            item: {
+              title,
+              slug,
+              status,
+              content_html,
+              featured_url: featured_url || "",
+            },
+            categories,
+            selectedCategoryIds: (req.body["category_ids[]"] ||
+              req.body.category_ids ||
+              []
+            )
+              .map(String)
+              .filter(Boolean),
+            primaryCategoryId: req.body.primary_category_id || "",
+            gallery: buildGalleryFromBody(req.body),
+            created_at_local: created_at_local || "",
+            scheduled_at_local: scheduled_at_local || "",
+            error:
+              "Vui lòng chọn thời điểm lên lịch đăng (trong tương lai).",
+            seo: extractSeoFromBody(req.body),
+            seoDefaults,
+          });
         }
         scheduledUtc = localToUtcSql(scheduled_at_local, tz);
         const nowUtc = new Date().toISOString().slice(0, 19).replace("T", " ");
         if (scheduledUtc <= nowUtc) {
-          throw new Error("Thời điểm lên lịch phải ở tương lai.");
+          const categories = await getCategoriesIndented(db, lang);
+          return res.status(400).render("posts/edit", {
+            pageTitle: "Tạo bài viết",
+            mode: "create",
+            item: {
+              title,
+              slug,
+              status,
+              content_html,
+              featured_url: featured_url || "",
+            },
+            categories,
+            selectedCategoryIds: (req.body["category_ids[]"] ||
+              req.body.category_ids ||
+              []
+            )
+              .map(String)
+              .filter(Boolean),
+            primaryCategoryId: req.body.primary_category_id || "",
+            gallery: buildGalleryFromBody(req.body),
+            created_at_local: created_at_local || "",
+            scheduled_at_local: scheduled_at_local || "",
+            error: "Thời điểm lên lịch phải ở tương lai.",
+            seo: extractSeoFromBody(req.body),
+            seoDefaults,
+          });
         }
       }
 
@@ -394,39 +514,40 @@ router.post(
       }
 
       // Gallery
-      const galleryUrls =
-        req.body["gallery_urls[]"] ||
-        (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
+      const galleryObjs = buildGalleryFromBody(req.body);
       await replaceGalleryByUrls(
         db,
         postId,
-        Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
+        galleryObjs.map((g) => g.url)
       );
-
-      // === SEO SAVE ===
-      const seoForm = req.body.seo || {};
-      // Nếu title/description để trống → tự sinh từ tiêu đề/nội dung
-      if (!seoForm.title) seoForm.title = title || "";
-      if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
-      await saveSeo("post", postId, seoForm, req.user?.id, lang);
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
-      const seoDefaults = await getSeoDefaults();
       res.status(400).render("posts/edit", {
         pageTitle: "Tạo bài viết",
         mode: "create",
-        item: null,
+        item: {
+          title: req.body.title || "",
+          slug: req.body.slug || "",
+          status: req.body.status || "draft",
+          content_html: req.body.content_html || "",
+          featured_url: req.body.featured_url || "",
+        },
         categories,
-        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds: (req.body["category_ids[]"] ||
+          req.body.category_ids ||
+          []
+        )
+          .map(String)
+          .filter(Boolean),
         primaryCategoryId: req.body.primary_category_id || "",
-        gallery: [],
+        gallery: buildGalleryFromBody(req.body),
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
-        seo: req.body.seo || {},
-        seoDefaults
+        seo: extractSeoFromBody(req.body),
+        seoDefaults,
       });
     }
   }
@@ -448,19 +569,29 @@ router.get(
 
     const { item, selectedIds, primaryCat, gallery } = info;
 
-    const createdLocal = formatUtcToTZ(item.created_at, tz, "yyyy-MM-dd HH:mm").replace(
-      " ",
-      "T"
-    );
+    const createdLocal = formatUtcToTZ(
+      item.created_at,
+      tz,
+      "yyyy-MM-dd HH:mm"
+    ).replace(" ", "T");
     const scheduledLocal = item.scheduled_at
-      ? formatUtcToTZ(item.scheduled_at, tz, "yyyy-MM-dd HH:mm").replace(" ", "T")
+      ? formatUtcToTZ(item.scheduled_at, tz, "yyyy-MM-dd HH:mm").replace(
+          " ",
+          "T"
+        )
       : "";
 
-    // === SEO LOAD (+auto default nếu trống) ===
-    const seoDefaults = await getSeoDefaults();
-    const seoData = (await getSeo("post", id, lang)) || {};
-    if (!seoData.title) seoData.title = item.title || "";
-    if (!seoData.description) seoData.description = stripToText(item.content_html || "", 160);
+    // ➕ Lấy SEO hiện tại + defaults
+    let seo = {};
+    let seoDefaults = {};
+    try {
+      seo = (await getSeo("post", id)) || {};
+    } catch {}
+    try {
+      seoDefaults = (await getSeoDefaults("post")) || {};
+    } catch {
+      seoDefaults = {};
+    }
 
     res.render("posts/edit", {
       pageTitle: "Sửa bài viết",
@@ -473,8 +604,9 @@ router.get(
       created_at_local: createdLocal,
       scheduled_at_local: scheduledLocal,
       error: null,
-      seo: seoData,
-      seoDefaults
+      // ➕ truyền vào partial
+      seo,
+      seoDefaults,
     });
   }
 );
@@ -488,6 +620,14 @@ router.post(
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
     const id = parseInt(req.params.id, 10);
 
+    // ➕ defaults để render lại khi lỗi
+    let seoDefaults = {};
+    try {
+      seoDefaults = (await getSeoDefaults("post")) || {};
+    } catch {
+      seoDefaults = {};
+    }
+
     try {
       const {
         title,
@@ -499,16 +639,47 @@ router.post(
         featured_url,
       } = req.body;
 
-      let category_ids = req.body["category_ids[]"] || req.body.category_ids || [];
-      if (!Array.isArray(category_ids)) category_ids = [category_ids].filter(Boolean);
+      let category_ids =
+        req.body["category_ids[]"] || req.body.category_ids || [];
+      if (!Array.isArray(category_ids))
+        category_ids = [category_ids].filter(Boolean);
 
       let primary_category_id =
         req.body.primary_category_id ||
-        (category_ids.length ? String(category_ids[category_ids.length - 1]) : "");
+        (category_ids.length
+          ? String(category_ids[category_ids.length - 1])
+          : "");
 
       if (category_ids.length === 0) {
-        throw new Error("Bạn chưa chọn danh mục, vui lòng chọn.");
+        const categories = await getCategoriesIndented(db, lang);
+        return res.status(400).render("posts/edit", {
+          pageTitle: "Sửa bài viết",
+          mode: "edit",
+          item: {
+            id,
+            title,
+            slug,
+            status,
+            content_html,
+            featured_url: featured_url || "",
+          },
+          categories,
+          selectedCategoryIds: (req.body["category_ids[]"] ||
+            req.body.category_ids ||
+            []
+          )
+            .map(String)
+            .filter(Boolean),
+          primaryCategoryId: req.body.primary_category_id || "",
+          gallery: buildGalleryFromBody(req.body),
+          created_at_local: created_at_local || "",
+          scheduled_at_local: scheduled_at_local || "",
+          error: "Bạn chưa chọn danh mục, vui lòng chọn.",
+          seo: extractSeoFromBody(req.body),
+          seoDefaults,
+        });
       }
+
       if (category_ids.length > 1 && !primary_category_id) {
         primary_category_id = String(category_ids[category_ids.length - 1]);
       }
@@ -519,12 +690,65 @@ router.post(
       let scheduledUtc = null;
       if (status === "scheduled") {
         if (!scheduled_at_local) {
-          throw new Error("Vui lòng chọn thời điểm lên lịch đăng (trong tương lai).");
+          const categories = await getCategoriesIndented(db, lang);
+          return res.status(400).render("posts/edit", {
+            pageTitle: "Sửa bài viết",
+            mode: "edit",
+            item: {
+              id,
+              title,
+              slug,
+              status,
+              content_html,
+              featured_url: featured_url || "",
+            },
+            categories,
+            selectedCategoryIds: (req.body["category_ids[]"] ||
+              req.body.category_ids ||
+              []
+            )
+              .map(String)
+              .filter(Boolean),
+            primaryCategoryId: req.body.primary_category_id || "",
+            gallery: buildGalleryFromBody(req.body),
+            created_at_local: created_at_local || "",
+            scheduled_at_local: scheduled_at_local || "",
+            error:
+              "Vui lòng chọn thời điểm lên lịch đăng (trong tương lai).",
+            seo: extractSeoFromBody(req.body),
+            seoDefaults,
+          });
         }
         scheduledUtc = localToUtcSql(scheduled_at_local, tz);
         const nowUtc = new Date().toISOString().slice(0, 19).replace("T", " ");
         if (scheduledUtc <= nowUtc) {
-          throw new Error("Thời điểm lên lịch phải ở tương lai.");
+          const categories = await getCategoriesIndented(db, lang);
+          return res.status(400).render("posts/edit", {
+            pageTitle: "Sửa bài viết",
+            mode: "edit",
+            item: {
+              id,
+              title,
+              slug,
+              status,
+              content_html,
+              featured_url: featured_url || "",
+            },
+            categories,
+            selectedCategoryIds: (req.body["category_ids[]"] ||
+              req.body.category_ids ||
+              []
+            )
+              .map(String)
+              .filter(Boolean),
+            primaryCategoryId: req.body.primary_category_id || "",
+            gallery: buildGalleryFromBody(req.body),
+            created_at_local: created_at_local || "",
+            scheduled_at_local: scheduled_at_local || "",
+            error: "Thời điểm lên lịch phải ở tương lai.",
+            seo: extractSeoFromBody(req.body),
+            seoDefaults,
+          });
         }
       }
 
@@ -550,6 +774,7 @@ router.post(
         lang
       );
 
+      // Danh mục
       await db.run(`DELETE FROM posts_categories WHERE post_id = ?`, id);
       for (const cid of category_ids) {
         const isPrimary = String(cid) === String(primary_category_id) ? 1 : 0;
@@ -561,47 +786,45 @@ router.post(
         );
       }
 
+      // Ảnh đại diện
       await upsertFeaturedByUrl(db, id, featured_url);
 
-      const galleryUrls =
-        req.body["gallery_urls[]"] ||
-        (Array.isArray(req.body.gallery_urls) ? req.body.gallery_urls : []);
+      // Gallery
+      const galleryObjs = buildGalleryFromBody(req.body);
       await replaceGalleryByUrls(
         db,
         id,
-        Array.isArray(galleryUrls) ? galleryUrls : [galleryUrls].filter(Boolean)
+        galleryObjs.map((g) => g.url)
       );
-
-      // === SEO SAVE ===
-      const seoForm = req.body.seo || {};
-      if (!seoForm.title) seoForm.title = title || "";
-      if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
-      await saveSeo("post", id, seoForm, req.user?.id, lang);
 
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
-      const seoDefaults = await getSeoDefaults();
       res.status(400).render("posts/edit", {
         pageTitle: "Sửa bài viết",
         mode: "edit",
         item: {
           id,
-          title: req.body.title,
-          slug: req.body.slug,
-          status: req.body.status,
-          content_html: req.body.content_html,
+          title: req.body.title || "",
+          slug: req.body.slug || "",
+          status: req.body.status || "draft",
+          content_html: req.body.content_html || "",
           featured_url: req.body.featured_url || "",
         },
         categories,
-        selectedCategoryIds: (req.body["category_ids[]"] || req.body.category_ids || []).map(String),
+        selectedCategoryIds: (req.body["category_ids[]"] ||
+          req.body.category_ids ||
+          []
+        )
+          .map(String)
+          .filter(Boolean),
         primaryCategoryId: req.body.primary_category_id || "",
-        gallery: [],
+        gallery: buildGalleryFromBody(req.body),
         created_at_local: req.body.created_at_local || "",
         scheduled_at_local: req.body.scheduled_at_local || "",
         error: e.message || String(e),
-        seo: req.body.seo || {},
-        seoDefaults
+        seo: extractSeoFromBody(req.body),
+        seoDefaults,
       });
     }
   }

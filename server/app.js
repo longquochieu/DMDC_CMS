@@ -30,6 +30,10 @@ import usersRoutes from "./routes/users.js";
 import logsRoutes from "./routes/logs.js";
 import trashRoutes from "./routes/trash.js";
 import searchRoutes from "./routes/search.js";
+import seoSettingsRoutes from "./routes/seo-settings.js";
+import seoPublicRoutes from "./routes/seo-public.js";
+import sitemapRoutes from './routes/sitemap.js';
+import robotsRoutes from './routes/robots.js';
 
 // services (cron)
 import { runSchedulerTick } from "./services/scheduler.js";
@@ -111,6 +115,16 @@ app.use("/admin/settings", settingsExtra);
 app.use("/admin/logs", logsRoutes);
 app.use("/admin/trash", trashRoutes);
 app.use("/admin/search", searchRoutes);
+
+// Mount admin SEO settings
+app.use("/admin/settings/seo", seoSettingsRoutes);
+
+// Public SEO endpoints
+app.use("/", seoPublicRoutes);
+
+// Mount routes (giữ nguyên các app.use khác)
+app.use('/', sitemapRoutes);            // /sitemap.xml
+app.use('/', robotsRoutes);             // /robots.txt
 
 // Cron
 //cron.schedule("*/5 * * * *", async () => { try { await runSchedulerTick(); } catch {} });

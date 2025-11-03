@@ -9,17 +9,7 @@ import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
 
 const router = express.Router();
 
-function stripToText(html = "", max = 160) {
-  const t = (html || "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<\/?[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
-}
-
-/* ===== LIST (Bảng) ===== */
+/* ===== LIST (BẢNG) ===== */
 router.get('/', requireAuth, async (req, res) => {
   const db   = await getDb();
   const lang = await getSetting('default_language', 'vi');
@@ -29,8 +19,8 @@ router.get('/', requireAuth, async (req, res) => {
       c.id,
       c.parent_id,
       c.order_index,
-      c.created_at      AS created_at,
-      c.created_by      AS created_by,
+      c.created_at,
+      c.created_by,
       u.username        AS author,
       ct.name           AS title,
       ct.slug           AS slug,
@@ -93,7 +83,7 @@ router.get('/tree', requireAuth, async (req, res) => {
   });
 });
 
-/* ===== NEW ===== */
+/* ===== NEW (form) ===== */
 router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
@@ -109,22 +99,22 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
   );
 
   const seoDefaults = await getSeoDefaults();
-  const seoData = {
+  const seo = {
     title: "",
-    description: "",
+    meta_description: "",
     focus_keyword: "",
-    robots_index: "index",
-    robots_follow: "follow",
+    robots_index: seoDefaults.seo_default_index || "index",
+    robots_follow: seoDefaults.seo_default_follow || "follow",
     robots_advanced: "",
-    canonical: "",
-    schema_type: "",
-    schema_jsonld: "",
+    canonical_url: "",
+    schema_type: seoDefaults.seo_schema_default_type || "",
+    schema_jsonld: seoDefaults.seo_schema_default_jsonld || "",
     og_title: "",
     og_description: "",
-    og_image: "",
+    og_image_url: "",
     twitter_title: "",
     twitter_description: "",
-    twitter_image: ""
+    twitter_image_url: "",
   };
 
   return res.render("categories/edit", {
@@ -132,18 +122,19 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
     item: null,
     parents,
     error: null,
-    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-    seo: seoData,
+    csrfToken: (res.locals.csrfToken || ""),
+    seo,
     seoDefaults
   });
 });
 
+/* ===== NEW (submit) ===== */
 router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
 
   try {
-    const { name, slug, parent_id, order_index, description_html } = req.body;
+    const { name, slug, parent_id, order_index, content_html } = req.body;
     const theName = (name || "").trim();
     if (!theName) throw new Error("Vui lòng nhập tên danh mục");
 
@@ -170,44 +161,77 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
 
     const theSlug = (slug && slug.trim()) ? toSlug(slug) : toSlug(theName);
     await db.run(
-      `INSERT INTO categories_translations(category_id, language, name, slug)
-       VALUES(?,?,?,?)`,
-      [id, lang, theName, theSlug]
+      `INSERT INTO categories_translations(category_id, language, name, slug, content_html)
+       VALUES(?,?,?,?,?)`,
+      [id, lang, theName, theSlug, content_html || ""]
     );
 
-    // SEO save
-    const seoForm = req.body.seo || {};
-    if (!seoForm.title) seoForm.title = theName;
-    if (!seoForm.description) seoForm.description = stripToText(description_html || "", 160);
-    await saveSeo('category', id, seoForm, req.user?.id, lang);
+    // --- SAVE SEO ---
+    const seoPayload = {
+      title: req.body.seo_title || "",
+      meta_description: req.body.seo_description || "",
+      focus_keyword: req.body.seo_focus_keyword || "",
+      robots_index: req.body.seo_robots_index || "",
+      robots_follow: req.body.seo_robots_follow || "",
+      robots_advanced: req.body.seo_robots_advanced || "",
+      canonical_url: req.body.seo_canonical_url || "",
+      schema_type: req.body.seo_schema_type || "",
+      schema_jsonld: req.body.seo_schema_jsonld || "",
+      og_title: req.body.seo_og_title || "",
+      og_description: req.body.seo_og_description || "",
+      og_image_url: req.body.seo_og_image_url || "",
+      twitter_title: req.body.seo_twitter_title || "",
+      twitter_description: req.body.seo_twitter_description || "",
+      twitter_image_url: req.body.seo_twitter_image_url || "",
+    };
+    await saveSeo("category", id, lang, seoPayload);
+    // ---------------
 
     return res.redirect("/admin/categories");
   } catch (e) {
-    // ✅ FIX: dùng lại db + lang có sẵn, KHÔNG dùng await trong ngữ cảnh không async
-    const parents = await db.all(
-      `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
-         FROM categories c
-    LEFT JOIN categories_translations t
-           ON t.category_id = c.id AND t.language = ?
-        WHERE c.deleted_at IS NULL
-     ORDER BY name`,
-      [lang]
-    );
-    const seoDefaults = await getSeoDefaults();
+    const parents = await getDb().then(async (db2) => {
+      const lg = await getSetting("default_language", "vi");
+      return db2.all(
+        `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+           FROM categories c
+      LEFT JOIN categories_translations t
+             ON t.category_id = c.id AND t.language = ?
+          WHERE c.deleted_at IS NULL
+       ORDER BY name`,
+        [lg]
+      );
+    });
 
+    const seoDefaults = await getSeoDefaults();
     return res.render("categories/edit", {
       pageTitle: "Thêm danh mục",
       item: null,
       parents,
       error: e.message,
-      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-      seo: (req.body.seo || {}),
+      csrfToken: (res.locals.csrfToken || ""),
+      seo: {
+        title: req.body.seo_title || "",
+        meta_description: req.body.seo_description || "",
+        focus_keyword: req.body.seo_focus_keyword || "",
+        robots_index: req.body.seo_robots_index || "",
+        robots_follow: req.body.seo_robots_follow || "",
+        robots_advanced: req.body.seo_robots_advanced || "",
+        canonical_url: req.body.seo_canonical_url || "",
+        schema_type: req.body.seo_schema_type || "",
+        schema_jsonld: req.body.seo_schema_jsonld || "",
+        og_title: req.body.seo_og_title || "",
+        og_description: req.body.seo_og_description || "",
+        og_image_url: req.body.seo_og_image_url || "",
+        twitter_title: req.body.seo_twitter_title || "",
+        twitter_description: req.body.seo_twitter_description || "",
+        twitter_image_url: req.body.seo_twitter_image_url || "",
+      },
       seoDefaults
     });
   }
 });
 
-/* ===== EDIT ===== */
+/* ===== EDIT (form) ===== */
 router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
@@ -215,7 +239,7 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
 
   const item = await db.get(
     `SELECT c.id, c.parent_id, c.order_index, c.created_at, c.updated_at,
-            t.name, t.slug
+            t.name, t.slug, t.content_html
        FROM categories c
   LEFT JOIN categories_translations t
          ON t.category_id = c.id AND t.language = ?
@@ -234,30 +258,28 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
     [lang, id]
   );
 
-  // SEO load + auto default
+  const seo = await getSeo("category", id, lang);
   const seoDefaults = await getSeoDefaults();
-  const seoData = (await getSeo('category', id, lang)) || {};
-  if (!seoData.title) seoData.title = item.name || "";
-  if (!seoData.description) seoData.description = ""; // categories thường không có content_html
 
   return res.render("categories/edit", {
     pageTitle: "Sửa danh mục",
     item,
     parents,
     error: null,
-    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-    seo: seoData,
+    csrfToken: (res.locals.csrfToken || ""),
+    seo,
     seoDefaults
   });
 });
 
+/* ===== EDIT (submit) ===== */
 router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
   const id = Number(req.params.id);
 
   try {
-    const { name, slug, parent_id, order_index, description_html } = req.body;
+    const { name, slug, parent_id, order_index, content_html } = req.body;
     const theName = (name || "").trim();
     if (!theName) throw new Error("Vui lòng nhập tên danh mục");
 
@@ -290,43 +312,65 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
 
     if (exists) {
       await db.run(
-        `UPDATE categories_translations SET name = ?, slug = ? WHERE category_id = ? AND language = ?`,
-        [theName, theSlug, id, lang]
+        `UPDATE categories_translations SET name = ?, slug = ?, content_html=? WHERE category_id = ? AND language = ?`,
+        [theName, theSlug, content_html || "", id, lang]
       );
     } else {
       await db.run(
-        `INSERT INTO categories_translations(category_id, language, name, slug)
-         VALUES(?,?,?,?)`,
-        [id, lang, theName, theSlug]
+        `INSERT INTO categories_translations(category_id, language, name, slug, content_html)
+         VALUES(?,?,?,?,?)`,
+        [id, lang, theName, theSlug, content_html || ""]
       );
     }
 
-    // SEO save
-    const seoForm = req.body.seo || {};
-    if (!seoForm.title) seoForm.title = theName;
-    if (!seoForm.description) seoForm.description = stripToText(description_html || "", 160);
-    await saveSeo('category', id, seoForm, req.user?.id, lang);
+    // --- SAVE SEO ---
+    const seoPayload = {
+      title: req.body.seo_title || "",
+      meta_description: req.body.seo_description || "",
+      focus_keyword: req.body.seo_focus_keyword || "",
+      robots_index: req.body.seo_robots_index || "",
+      robots_follow: req.body.seo_robots_follow || "",
+      robots_advanced: req.body.seo_robots_advanced || "",
+      canonical_url: req.body.seo_canonical_url || "",
+      schema_type: req.body.seo_schema_type || "",
+      schema_jsonld: req.body.seo_schema_jsonld || "",
+      og_title: req.body.seo_og_title || "",
+      og_description: req.body.seo_og_description || "",
+      og_image_url: req.body.seo_og_image_url || "",
+      twitter_title: req.body.seo_twitter_title || "",
+      twitter_description: req.body.seo_twitter_description || "",
+      twitter_image_url: req.body.seo_twitter_image_url || "",
+    };
+    await saveSeo("category", id, lang, seoPayload);
+    // ---------------
 
     return res.redirect("/admin/categories");
   } catch (e) {
-    const parents = await db.all(
-      `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
-         FROM categories c
-    LEFT JOIN categories_translations t
-           ON t.category_id = c.id AND t.language = ?
-        WHERE c.deleted_at IS NULL AND c.id != ?
-     ORDER BY name`,
-      [lang, id]
-    );
-    const item = await db.get(
-      `SELECT c.id, c.parent_id, c.order_index, c.created_at, c.updated_at,
-              t.name, t.slug
-         FROM categories c
-    LEFT JOIN categories_translations t
-           ON t.category_id = c.id AND t.language = ?
-        WHERE c.id = ?`,
-      [lang, id]
-    );
+    const parents = await getDb().then(async (db2) => {
+      return db2.all(
+        `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+           FROM categories c
+      LEFT JOIN categories_translations t
+             ON t.category_id = c.id AND t.language = ?
+          WHERE c.deleted_at IS NULL AND c.id != ?
+       ORDER BY name`,
+        [await getSetting("default_language", "vi"), id]
+      );
+    });
+
+    const item = await getDb().then(async (db2) => {
+      return db2.get(
+        `SELECT c.id, c.parent_id, c.order_index, c.created_at, c.updated_at,
+                t.name, t.slug, t.content_html
+           FROM categories c
+      LEFT JOIN categories_translations t
+             ON t.category_id = c.id AND t.language = ?
+          WHERE c.id = ?`,
+        [lang, id]
+      );
+    });
+
+    const seo = await getSeo("category", id, lang).catch(() => ({}));
     const seoDefaults = await getSeoDefaults();
 
     return res.render("categories/edit", {
@@ -334,8 +378,8 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       item,
       parents,
       error: e.message,
-      csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || ""),
-      seo: (req.body.seo || {}),
+      csrfToken: (res.locals.csrfToken || ""),
+      seo,
       seoDefaults
     });
   }

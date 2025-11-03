@@ -12,7 +12,6 @@ import { getPagesTree } from '../services/tree.js';
 import { getSeo, saveSeo, getSeoDefaults } from '../services/seo.js';
 
 const router = express.Router();
-
 const TEMPLATES = ['default','landing','contact'];
 
 function cleanHtml(input){
@@ -41,16 +40,6 @@ function cleanHtml(input){
     }
   };
   return sanitizeHtml(input||'', cfg);
-}
-
-function stripToText(html = "", max = 160) {
-  const t = (html || "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<\/?[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return t.length > max ? t.slice(0, max - 1).trim() + "…" : t;
 }
 
 /** ===== LIST ===== */
@@ -96,25 +85,25 @@ router.get('/new', requireRoles('admin','editor','author','contributor'), async 
   `, lang);
 
   const seoDefaults = await getSeoDefaults();
-  const seoData = {
+  const seo = {
     title: "",
-    description: "",
+    meta_description: "",
     focus_keyword: "",
-    robots_index: "index",
-    robots_follow: "follow",
+    robots_index: seoDefaults.seo_default_index || "index",
+    robots_follow: seoDefaults.seo_default_follow || "follow",
     robots_advanced: "",
-    canonical: "",
-    schema_type: "",
-    schema_jsonld: "",
+    canonical_url: "",
+    schema_type: seoDefaults.seo_schema_default_type || "",
+    schema_jsonld: seoDefaults.seo_schema_default_jsonld || "",
     og_title: "",
     og_description: "",
-    og_image: "",
+    og_image_url: "",
     twitter_title: "",
     twitter_description: "",
-    twitter_image: ""
+    twitter_image_url: "",
   };
 
-  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null, templates: TEMPLATES, seo: seoData, seoDefaults });
+  res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:null, templates: TEMPLATES, seo, seoDefaults });
 });
 
 /** ===== NEW (submit) ===== */
@@ -134,23 +123,36 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
     );
 
     const idRow = await db.get('SELECT last_insert_rowid() AS id');
-    const pageId = idRow.id;
-
     await db.run(
       'INSERT INTO pages_translations(page_id,language,title,slug,content_html) VALUES(?,?,?,?,?)',
-      pageId, lang, title, theSlug, cleanHtml(content_html||'')
+      idRow.id, lang, title, theSlug, cleanHtml(content_html||'')
     );
 
-    const full = await buildFullPathForPage(pageId, lang);
-    await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, pageId, lang);
+    const full = await buildFullPathForPage(idRow.id, lang);
+    await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, idRow.id, lang);
 
-    // SEO save (auto default nếu trống)
-    const seoForm = req.body.seo || {};
-    if (!seoForm.title) seoForm.title = title || "";
-    if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
-    await saveSeo('page', pageId, seoForm, req.user?.id, lang);
+    // --- SAVE SEO ---
+    const seoPayload = {
+      title: req.body.seo_title || "",
+      meta_description: req.body.seo_description || "",
+      focus_keyword: req.body.seo_focus_keyword || "",
+      robots_index: req.body.seo_robots_index || "",
+      robots_follow: req.body.seo_robots_follow || "",
+      robots_advanced: req.body.seo_robots_advanced || "",
+      canonical_url: req.body.seo_canonical_url || "",
+      schema_type: req.body.seo_schema_type || "",
+      schema_jsonld: req.body.seo_schema_jsonld || "",
+      og_title: req.body.seo_og_title || "",
+      og_description: req.body.seo_og_description || "",
+      og_image_url: req.body.seo_og_image_url || "",
+      twitter_title: req.body.seo_twitter_title || "",
+      twitter_description: req.body.seo_twitter_description || "",
+      twitter_image_url: req.body.seo_twitter_image_url || "",
+    };
+    await saveSeo("page", idRow.id, lang, seoPayload);
+    // ---------------
 
-    await logActivity(req.user.id, 'create', 'page', pageId);
+    await logActivity(req.user.id, 'create', 'page', idRow.id);
     res.redirect('/admin/pages');
   }catch(e){
     const parents = await db.all(`
@@ -159,7 +161,26 @@ router.post('/new', requireRoles('admin','editor','author','contributor'), async
       WHERE p.deleted_at IS NULL ORDER BY t.title
     `, lang);
     const seoDefaults = await getSeoDefaults();
-    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message, templates: TEMPLATES, seo: (req.body.seo||{}), seoDefaults });
+    res.render('pages/edit', { pageTitle:'New Page', item:null, parents, lang, error:e.message, templates: TEMPLATES,
+      seo: {
+        title: req.body.seo_title || "",
+        meta_description: req.body.seo_description || "",
+        focus_keyword: req.body.seo_focus_keyword || "",
+        robots_index: req.body.seo_robots_index || "",
+        robots_follow: req.body.seo_robots_follow || "",
+        robots_advanced: req.body.seo_robots_advanced || "",
+        canonical_url: req.body.seo_canonical_url || "",
+        schema_type: req.body.seo_schema_type || "",
+        schema_jsonld: req.body.seo_schema_jsonld || "",
+        og_title: req.body.seo_og_title || "",
+        og_description: req.body.seo_og_description || "",
+        og_image_url: req.body.seo_og_image_url || "",
+        twitter_title: req.body.seo_twitter_title || "",
+        twitter_description: req.body.seo_twitter_description || "",
+        twitter_image_url: req.body.seo_twitter_image_url || "",
+      },
+      seoDefaults
+    });
   }
 });
 
@@ -184,13 +205,10 @@ router.get('/:id/edit', requireRoles('admin','editor','author','contributor'), a
     WHERE p.id=?`, lang, id
   );
 
-  // SEO load + auto defaults
+  const seo = await getSeo("page", Number(id), lang);
   const seoDefaults = await getSeoDefaults();
-  const seoData = (await getSeo('page', Number(id), lang)) || {};
-  if (!seoData.title) seoData.title = item?.title || "";
-  if (!seoData.description) seoData.description = stripToText(item?.content_html || "", 160);
 
-  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null, templates: TEMPLATES, seo: seoData, seoDefaults });
+  res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:null, templates: TEMPLATES, seo, seoDefaults });
 });
 
 /** ===== EDIT (submit) ===== */
@@ -219,11 +237,26 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
     const full = await buildFullPathForPage(id, lang);
     await db.run('UPDATE pages_translations SET full_path=? WHERE page_id=? AND language=?', full, id, lang);
 
-    // SEO save
-    const seoForm = req.body.seo || {};
-    if (!seoForm.title) seoForm.title = title || "";
-    if (!seoForm.description) seoForm.description = stripToText(content_html || "", 160);
-    await saveSeo('page', Number(id), seoForm, req.user?.id, lang);
+    // --- SAVE SEO ---
+    const seoPayload = {
+      title: req.body.seo_title || "",
+      meta_description: req.body.seo_description || "",
+      focus_keyword: req.body.seo_focus_keyword || "",
+      robots_index: req.body.seo_robots_index || "",
+      robots_follow: req.body.seo_robots_follow || "",
+      robots_advanced: req.body.seo_robots_advanced || "",
+      canonical_url: req.body.seo_canonical_url || "",
+      schema_type: req.body.seo_schema_type || "",
+      schema_jsonld: req.body.seo_schema_jsonld || "",
+      og_title: req.body.seo_og_title || "",
+      og_description: req.body.seo_og_description || "",
+      og_image_url: req.body.seo_og_image_url || "",
+      twitter_title: req.body.seo_twitter_title || "",
+      twitter_description: req.body.seo_twitter_description || "",
+      twitter_image_url: req.body.seo_twitter_image_url || "",
+    };
+    await saveSeo("page", Number(id), lang, seoPayload);
+    // ---------------
 
     await logActivity(req.user.id, 'update', 'page', id);
     res.redirect('/admin/pages');
@@ -234,6 +267,9 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
        WHERE p.deleted_at IS NULL AND p.id <> ?
        ORDER BY t.title`, lang, id
     );
+    const seo = await getSeo("page", Number(id), lang).catch(() => ({}));
+    const seoDefaults = await getSeoDefaults();
+
     const item = await db.get(`
       SELECT p.*, t.title, t.slug, t.full_path, t.content_html,
             (SELECT m.url FROM media m WHERE m.id = p.featured_media_id) AS featured_media_url
@@ -241,8 +277,8 @@ router.post('/:id/edit', requireRoles('admin','editor','author','contributor'), 
       LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=?
       WHERE p.id=?`, lang, id
     );
-    const seoDefaults = await getSeoDefaults();
-    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message, templates: TEMPLATES, seo: (req.body.seo||{}), seoDefaults });
+
+    res.render('pages/edit', { pageTitle:'Edit Page', item, parents, lang, error:e.message, templates: TEMPLATES, seo, seoDefaults });
   }
 });
 
