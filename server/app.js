@@ -97,6 +97,7 @@ app.use(attachCsrfToken);
 
 // user vào locals
 app.use((req, res, next) => { res.locals.user = req.user; next(); });
+app.use((req, res, next) => { res.locals.req = req; next(); });
 
 // Health
 app.get("/health", (req, res) => res.json({ ok: true }));

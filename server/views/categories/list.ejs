@@ -41,7 +41,12 @@
                     <a class="btn btn-outline-primary" href="/admin/categories/<%= r.id %>/edit">Sửa</a>
                     <form class="d-inline" method="post" action="/admin/categories/<%= r.id %>/trash" onsubmit="return confirm('Chuyển vào thùng rác?');">
                       <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' ? csrfToken : (res && res.locals && res.locals.csrfToken) || '') %>">
-                      <button class="btn btn-outline-danger">Xoá</button>
+                      <button type="button"
+							class="btn btn-sm btn-danger js-cat-trash"
+							data-id="<%= r.id %>"
+							data-name="<%= r.title %>">
+						<i class="fas fa-trash"></i>
+					  </button>
                     </form>
                   </div>
                 </td>
@@ -52,4 +57,153 @@
       </table>
     </div>
   </div>
+<!-- Modal chuyển bài & xoá danh mục -->
+<div class="modal fade" id="catTrashModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Chuyển bài & xoá danh mục</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning mb-3 d-none" id="catTrashWarn"></div>
+
+        <div class="mb-3">
+          <label class="form-label">Chuyển toàn bộ bài viết sang danh mục:</label>
+          <select class="form-select" id="catTrashTarget"></select>
+          <div class="form-text">Bắt buộc chọn 1 danh mục đích trước khi xoá.</div>
+        </div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" value="1" id="catForcePrimary">
+          <label class="form-check-label" for="catForcePrimary">
+            Đặt làm danh mục chính nếu danh mục cũ đang là chính
+          </label>
+        </div>
+
+        <div class="border rounded p-2" style="max-height: 300px; overflow:auto;">
+          <table class="table table-sm align-middle m-0">
+            <thead>
+              <tr>
+                <th style="width:80px">ID</th>
+                <th>Tiêu đề bài viết</th>
+              </tr>
+            </thead>
+            <tbody id="catTrashPosts">
+              <tr><td colspan="2" class="text-muted">Đang tải...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <input type="hidden" id="catTrashId" value="">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
+        <button type="button" id="catTrashSubmit" class="btn btn-danger">Chuyển & Xoá</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function csrf() {
+    const m = document.querySelector('meta[name="csrf-token"]');
+    return m ? m.content : '';
+  }
+
+  const modalEl = document.getElementById('catTrashModal');
+  const warnEl  = document.getElementById('catTrashWarn');
+  const postsTbody = document.getElementById('catTrashPosts');
+  const targetSel  = document.getElementById('catTrashTarget');
+  const forcePrimaryCk = document.getElementById('catForcePrimary');
+  const trashIdInput = document.getElementById('catTrashId');
+  let bsModal = null;
+
+  document.querySelectorAll('.js-cat-trash').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const name = btn.getAttribute('data-name') || '';
+
+      // reset UI
+      warnEl.classList.add('d-none');
+      warnEl.textContent = '';
+      postsTbody.innerHTML = '<tr><td colspan="2" class="text-muted">Đang tải...</td></tr>';
+      targetSel.innerHTML = '<option value="">(Đang tải...)</option>';
+      forcePrimaryCk.checked = true;
+      trashIdInput.value = id;
+
+      // fetch dữ liệu xác nhận
+      const res = await fetch(`/admin/categories/${id}/confirm-trash`, { headers: { 'CSRF-Token': csrf() } });
+      if (!res.ok) {
+        const t = await res.text();
+        alert('Không tải được dữ liệu: ' + (t||res.status));
+        return;
+      }
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || 'Không tải được dữ liệu');
+        return;
+      }
+
+      // cảnh báo + danh sách bài
+      warnEl.classList.remove('d-none');
+      warnEl.innerHTML = `Danh mục <strong>${(data.category?.name || '(Không tên)')}</strong> đang có <strong>${data.count}</strong> bài viết. Vui lòng chọn danh mục đích để chuyển trước khi xoá.`;
+
+      postsTbody.innerHTML = (data.posts||[]).map(p => `
+        <tr><td>${p.id}</td><td>${p.title}</td></tr>
+      `).join('') || '<tr><td colspan="2" class="text-muted">Không có bài viết.</td></tr>';
+
+      // danh mục đích
+      targetSel.innerHTML = '<option value="">-- Chọn danh mục đích --</option>' +
+        (data.candidates||[]).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      // show modal
+      bsModal = (window.bootstrap && window.bootstrap.Modal)
+        ? new window.bootstrap.Modal(modalEl) : null;
+      if (bsModal) bsModal.show();
+      else modalEl.classList.add('show');
+    });
+  });
+
+  document.getElementById('catTrashSubmit').addEventListener('click', async () => {
+    const id = trashIdInput.value;
+    const newCat = targetSel.value;
+    if (!newCat) {
+      alert('Vui lòng chọn danh mục đích.');
+      return;
+    }
+
+    const body = {
+      new_category_id: newCat,
+      force_primary: forcePrimaryCk.checked ? '1' : '0'
+    };
+
+    const res = await fetch(`/admin/categories/${id}/reassign-and-trash`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CSRF-Token': csrf()
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      alert('Lỗi xoá danh mục: ' + (t || res.status));
+      return;
+    }
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.error || 'Không xoá được');
+      return;
+    }
+
+    // thành công
+    if (bsModal) bsModal.hide();
+    location.href = '/admin/categories?ok=trashed';
+  });
+})();
+</script>
+
 </div>

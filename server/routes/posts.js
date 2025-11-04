@@ -6,8 +6,10 @@ import { getDb } from "../utils/db.js";
 import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
 import { formatUtcToTZ, localToUtcSql } from "../utils/time.js";
-// ➕ SEO service (đã thêm)
+// SEO services
 import { getSeo, getSeoDefaults } from "../services/seo.js";
+// ➕ Activity Log (tuỳ chọn)
+import { logActivity } from "../services/activity.js";
 
 const router = express.Router();
 
@@ -215,6 +217,29 @@ async function replaceGalleryByUrls(db, postId, urls = []) {
   }
 }
 
+/* ------------------------ Activity Log helpers ------------------------ */
+// Cho phép bật/tắt log bằng Setting: activity.logs.enabled (mặc định '1')
+// Và có thể bỏ qua log theo request (?nolog=1 hoặc body.nolog=1)
+async function shouldLog(req) {
+  try {
+    if (req?.query?.nolog === "1" || req?.body?.nolog === "1") return false;
+    const enabled = await getSetting("activity.logs.enabled", "1");
+    return String(enabled) === "1";
+  } catch {
+    return true; // nếu lỗi đọc setting thì vẫn log để không mất dấu vết
+  }
+}
+
+async function tryLog(req, action, entity, entityId, meta = null) {
+  try {
+    if (await shouldLog(req)) {
+      await logActivity(req.user?.id || null, action, entity, entityId, meta);
+    }
+  } catch {
+    // nuốt lỗi log để không ảnh hưởng luồng chính
+  }
+}
+
 /* ------------------------ LIST ------------------------ */
 router.get("/", requireAuth, async (req, res) => {
   const db = await getDb();
@@ -313,7 +338,7 @@ router.get(
       "T"
     );
 
-    // ➕ SEO defaults cho Post
+    // SEO defaults cho Post
     let seoDefaults = {};
     try {
       seoDefaults = (await getSeoDefaults("post")) || {};
@@ -332,7 +357,7 @@ router.get(
       created_at_local: nowLocal,
       scheduled_at_local: "",
       error: null,
-      // ➕ truyền vào để partial không lỗi
+      // truyền vào để partial không lỗi
       seo: {},
       seoDefaults,
     });
@@ -347,7 +372,7 @@ router.post(
     const lang = await getSetting("default_language", "vi");
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
 
-    // ➕ Lấy defaults để render lại khi lỗi
+    // Defaults để render lại khi lỗi
     let seoDefaults = {};
     try {
       seoDefaults = (await getSeoDefaults("post")) || {};
@@ -401,7 +426,6 @@ router.post(
           created_at_local: created_at_local || "",
           scheduled_at_local: scheduled_at_local || "",
           error: "Bạn chưa chọn danh mục, vui lòng chọn.",
-          // ➕ giữ lại SEO người dùng nhập
           seo: extractSeoFromBody(req.body),
           seoDefaults,
         });
@@ -521,6 +545,9 @@ router.post(
         galleryObjs.map((g) => g.url)
       );
 
+      // ➕ Log create (tuỳ chọn)
+      await tryLog(req, "create", "post", postId);
+
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
@@ -581,7 +608,7 @@ router.get(
         )
       : "";
 
-    // ➕ Lấy SEO hiện tại + defaults
+    // Lấy SEO hiện tại + defaults
     let seo = {};
     let seoDefaults = {};
     try {
@@ -604,7 +631,6 @@ router.get(
       created_at_local: createdLocal,
       scheduled_at_local: scheduledLocal,
       error: null,
-      // ➕ truyền vào partial
       seo,
       seoDefaults,
     });
@@ -620,7 +646,7 @@ router.post(
     const tz = await getSetting("timezone", "Asia/Ho_Chi_Minh");
     const id = parseInt(req.params.id, 10);
 
-    // ➕ defaults để render lại khi lỗi
+    // Defaults để render lại khi lỗi
     let seoDefaults = {};
     try {
       seoDefaults = (await getSeoDefaults("post")) || {};
@@ -797,6 +823,9 @@ router.post(
         galleryObjs.map((g) => g.url)
       );
 
+      // ➕ Log update (tuỳ chọn)
+      await tryLog(req, "update", "post", id);
+
       res.redirect("/admin/posts");
     } catch (e) {
       const categories = await getCategoriesIndented(db, lang);
@@ -829,5 +858,66 @@ router.post(
     }
   }
 );
+/* ------------------------ TRASH / RESTORE ------------------------ */
+
+// Đưa bài viết vào thùng rác (soft delete)
+router.post("/:id/trash", requireRoles("admin", "editor"), async (req, res) => {
+  const db = await getDb();
+  const id = parseInt(req.params.id, 10);
+
+  try {
+    const row = await db.get(
+      `SELECT id, deleted_at FROM posts WHERE id = ?`,
+      id
+    );
+    if (!row) {
+      return res.redirect("/admin/posts?err=not_found");
+    }
+    if (row.deleted_at) {
+      // đã ở thùng rác rồi -> coi như OK
+      return res.redirect("/admin/posts?ok=already_trashed");
+    }
+
+    await db.run(
+      `UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      id
+    );
+
+    // ghi activity (tuỳ chọn)
+    try { await logActivity(req.user?.id, "trash", "post", id, null, req); } catch {}
+
+    return res.redirect("/admin/posts?ok=trashed");
+  } catch (e) {
+    return res.redirect("/admin/posts?err=" + encodeURIComponent(e.message || "trash_failed"));
+  }
+});
+
+// Khôi phục bài viết từ thùng rác
+router.post("/:id/restore", requireRoles("admin"), async (req, res) => {
+  const db = await getDb();
+  const id = parseInt(req.params.id, 10);
+
+  try {
+    const row = await db.get(
+      `SELECT id FROM posts WHERE id = ? AND deleted_at IS NOT NULL`,
+      id
+    );
+    if (!row) {
+      return res.redirect("/admin/trash?err=not_in_trash");
+    }
+
+    await db.run(
+      `UPDATE posts SET deleted_at = NULL WHERE id = ?`,
+      id
+    );
+
+    // ghi activity (tuỳ chọn)
+    try { await logActivity(req.user?.id, "restore", "post", id, null, req); } catch {}
+
+    return res.redirect("/admin/trash?ok=restored");
+  } catch (e) {
+    return res.redirect("/admin/trash?err=" + encodeURIComponent(e.message || "restore_failed"));
+  }
+});
 
 export default router;

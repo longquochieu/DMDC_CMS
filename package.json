@@ -1,6 +1,7 @@
 {
   "name": "dmdc-cms",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -27,12 +28,14 @@
     "sqlite3": "^5.1.7",
     "uuid": "^13.0.0"
   },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
   "scripts": {
     "db:init": "node scripts/init-db.js",
     "db:seed": "node scripts/seed-db.js",
-    "dev": "nodemon server/app.js"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.10"
+    "dev": "nodemon server/app.js",
+    "start": "node server/app.js",
+    "migrate:activity": "node scripts/migrate-activity-logs.js"
   }
 }

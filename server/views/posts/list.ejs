@@ -57,10 +57,15 @@
           <td><%= r.scheduled_at_fmt %></td>
           <td class="text-end">
             <a class="btn btn-sm btn-outline-primary" href="/admin/posts/<%= r.id %>/edit">Sửa</a>
-            <form action="/admin/posts/<%= r.id %>/trash" method="post" class="d-inline">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Chuyển bài viết vào Thùng rác?')">Xoá</button>
-            </form>
+            <form action="/admin/posts/<%= r.id %>/trash" method="post"
+				  class="d-inline"
+				  onsubmit="return confirm('Chuyển bài viết này vào thùng rác?')">
+			  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+			  <button class="btn btn-sm btn-outline-danger" title="Xoá">
+				<i class="fas fa-trash"></i>
+			  </button>
+			</form>
+
           </td>
         </tr>
       <% }) %>

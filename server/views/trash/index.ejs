@@ -1,65 +1,172 @@
-<% include('../partials/flash') %>
-<div class="card">
-  <div class="card-header d-flex justify-content-between"><strong>Trash</strong>
-    <form method="post" action="/admin/trash/empty" onsubmit="return confirm('Xoá sạch thùng rác?');">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="btn btn-danger btn-sm">Xoá sạch</button>
-    </form>
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <div class="col-md-6">
-        <h5>Pages</h5>
-        <ul>
-        <% pages.forEach(i => { %>
-          <li>#<%= i.id %> — <%= i.deleted_at %>
-            <form method="post" class="d-inline" action="/admin/trash/restore/pages/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
-            <form method="post" class="d-inline" action="/admin/trash/destroy/pages/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
-          </li>
-        <% }) %>
-        </ul>
+<%
+// ------- Safe defaults to avoid "is not defined" -------
+const okMsg  = (typeof ok  !== 'undefined' && ok)  ? ok  : '';
+const errMsg = (typeof err !== 'undefined' && err) ? err : '';
+const active = (typeof tab !== 'undefined' && tab) ? tab : 'posts';
 
-        <h5>Posts</h5>
-        <ul>
-        <% posts.forEach(i => { %>
-          <li>#<%= i.id %> — <%= i.deleted_at %>
-            <form method="post" class="d-inline" action="/admin/trash/restore/posts/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
-            <form method="post" class="d-inline" action="/admin/trash/destroy/posts/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
-          </li>
-        <% }) %>
-        </ul>
-      </div>
-      <div class="col-md-6">
-        <h5>Categories</h5>
-        <ul>
-        <% categories.forEach(i => { %>
-          <li>#<%= i.id %> — <%= i.deleted_at %>
-            <form method="post" class="d-inline" action="/admin/trash/restore/categories/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
-            <form method="post" class="d-inline" action="/admin/trash/destroy/categories/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
-          </li>
-        <% }) %>
-        </ul>
+// Helper to render a common table row (defensively handles missing fields)
+function renderRow(r, type) { %>
+  <tr>
+    <td><code><%= r.id %></code></td>
+    <td><%= r.title || r.name || '(Không tiêu đề)' %></td>
+    <td><%= r.slug || '—' %></td>
+    <td><%= r.deleted_by || r.deleter_name || r.deleter_username || '—' %></td>
+    <td><%= r.deleted_at || '—' %></td>
+    <td class="text-end">
+      <% if (type === 'pages') { %>
+        <form action="/admin/trash/pages/<%= r.id %>/restore" method="post" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-success">Khôi phục</button>
+        </form>
+        <form action="/admin/trash/pages/<%= r.id %>/delete" method="post" class="d-inline"
+              onsubmit="return confirm('Xoá vĩnh viễn trang này? Thao tác không thể hoàn tác!')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
+        </form>
+      <% } else if (type === 'posts') { %>
+        <form action="/admin/trash/posts/<%= r.id %>/restore" method="post" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-success">Khôi phục</button>
+        </form>
+        <form action="/admin/trash/posts/<%= r.id %>/delete" method="post" class="d-inline"
+              onsubmit="return confirm('Xoá vĩnh viễn bài viết này? Thao tác không thể hoàn tác!')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
+        </form>
+      <% } else if (type === 'categories') { %>
+        <form action="/admin/trash/categories/<%= r.id %>/restore" method="post" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-success">Khôi phục</button>
+        </form>
+        <form action="/admin/trash/categories/<%= r.id %>/delete" method="post" class="d-inline"
+              onsubmit="return confirm('Xoá vĩnh viễn danh mục này? Thao tác không thể hoàn tác!')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
+        </form>
+      <% } %>
+    </td>
+  </tr>
+<% } %>
 
-        <h5>Tags</h5>
-        <ul>
-        <% tags.forEach(i => { %>
-          <li>#<%= i.id %> — <%= i.deleted_at %>
-            <form method="post" class="d-inline" action="/admin/trash/restore/tags/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
-            <form method="post" class="d-inline" action="/admin/trash/destroy/tags/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
-          </li>
-        <% }) %>
-        </ul>
+<!-- server/views/trash/index.ejs -->
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
 
-        <h5>Media</h5>
-        <ul>
-        <% media.forEach(i => { %>
-          <li>#<%= i.id %> — <%= i.deleted_at %>
-            <form method="post" class="d-inline" action="/admin/trash/restore/media/<%= i.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-success">Khôi phục</button></form>
-            <form method="post" class="d-inline" action="/admin/trash/destroy/media/<%= i.id %>" onsubmit="return confirm('Xoá vĩnh viễn?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-xs btn-danger">Xoá hẳn</button></form>
-          </li>
-        <% }) %>
-        </ul>
-      </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm <%= (active==='pages' ? 'active' : '') %>" href="/admin/trash?tab=pages">Trang đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (active==='posts' ? 'active' : '') %>" href="/admin/trash?tab=posts">Bài viết đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (active==='categories' ? 'active' : '') %>" href="/admin/trash?tab=categories">Danh mục đã xoá</a>
+
+      <!-- Nếu bạn CHƯA có route /admin/trash/empty thì có thể tạm ẩn form này -->
+      <form method="post" action="/admin/trash/empty?tab=<%= active %>"
+            onsubmit="return confirm('Xoá vĩnh viễn TẤT CẢ mục trong thùng rác hiện tại?');">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="btn btn-danger btn-sm">Xoá toàn bộ</button>
+      </form>
     </div>
   </div>
+
+  <% if (okMsg) { %>
+    <div class="alert alert-success">Thao tác thành công: <%= okMsg %></div>
+  <% } %>
+  <% if (errMsg) { %>
+    <div class="alert alert-danger">Lỗi: <%= errMsg %></div>
+  <% } %>
+
+  <!-- PAGES TAB -->
+  <% if (active === 'pages') { %>
+    <div class="card">
+      <div class="card-header"><strong>Trang đã xoá</strong></div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:80px;">ID</th>
+                <th>Tiêu đề</th>
+                <th>Slug</th>
+                <th>Người xoá</th>
+                <th>Thời gian xoá</th>
+                <th class="text-end" style="width:180px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!pages || !pages.length) { %>
+                <tr><td colspan="6" class="text-center text-muted py-4">Không có trang nào trong thùng rác.</td></tr>
+              <% } else { %>
+                <% pages.forEach(r => { %>
+                  <%= renderRow(r, 'pages') %>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- POSTS TAB -->
+  <% if (active === 'posts') { %>
+    <div class="card">
+      <div class="card-header"><strong>Bài viết đã xoá</strong></div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:80px;">ID</th>
+                <th>Tiêu đề</th>
+                <th>Slug</th>
+                <th>Người xoá</th>
+                <th>Thời gian xoá</th>
+                <th class="text-end" style="width:180px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!posts || !posts.length) { %>
+                <tr><td colspan="6" class="text-center text-muted py-4">Không có bài viết nào trong thùng rác.</td></tr>
+              <% } else { %>
+                <% posts.forEach(r => { %>
+                  <%= renderRow(r, 'posts') %>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- CATEGORIES TAB -->
+  <% if (active === 'categories') { %>
+    <div class="card">
+      <div class="card-header"><strong>Danh mục đã xoá</strong></div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:80px;">ID</th>
+                <th>Tên danh mục</th>
+                <th>Slug</th>
+                <th>Người xoá</th>
+                <th>Thời gian xoá</th>
+                <th class="text-end" style="width:180px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!categories || !categories.length) { %>
+                <tr><td colspan="6" class="text-center text-muted py-4">Không có danh mục nào trong thùng rác.</td></tr>
+              <% } else { %>
+                <% categories.forEach(r => { %>
+                  <%= renderRow(r, 'categories') %>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <% } %>
 </div>

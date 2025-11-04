@@ -444,33 +444,124 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
   }
 });
 
-/* ===== TRASH ===== */
-router.post("/:id/trash", requireRoles("admin"), async (req, res) => {
+// === Lấy dữ liệu xác nhận xoá (danh sách bài, danh mục đích) ===
+router.get("/:id/confirm-trash", requireRoles("admin"), async (req, res) => {
   const db = await getDb();
+  const lang = await getSetting("default_language", "vi");
   const id = Number(req.params.id);
 
-  const hasChild = await db.get(
-    `SELECT 1 FROM categories WHERE parent_id = ? AND deleted_at IS NULL LIMIT 1`,
-    [id]
+  const cat = await db.get(
+    `SELECT c.id, ct.name AS name
+       FROM categories c
+  LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
+      WHERE c.id=? AND c.deleted_at IS NULL`,
+    [lang, id]
   );
-  if (hasChild) {
-    return res.redirect("/admin/categories?err=has_children");
-  }
+  if (!cat) return res.status(404).json({ ok: false, error: "Không tìm thấy danh mục" });
 
-  const hasPosts = await db.get(
-    `SELECT 1
+  const countRow = await db.get(
+    `SELECT COUNT(*) AS n
        FROM posts_categories pc
        JOIN posts p ON p.id = pc.post_id AND p.deleted_at IS NULL
-      WHERE pc.category_id = ?
-      LIMIT 1`,
+      WHERE pc.category_id = ?`,
     [id]
   );
-  if (hasPosts) {
-    return res.redirect("/admin/categories?err=has_posts");
+
+  const posts = await db.all(
+    `SELECT p.id, COALESCE(t.title, '(Không tên)') AS title
+       FROM posts p
+  LEFT JOIN posts_translations t ON t.post_id=p.id AND t.language=?
+       JOIN posts_categories pc ON pc.post_id=p.id
+      WHERE pc.category_id=? AND p.deleted_at IS NULL
+      ORDER BY p.id DESC LIMIT 200`,
+    [lang, id]
+  );
+
+  const others = await db.all(
+    `SELECT c.id, COALESCE(ct.name,'(Không tên)') AS name
+       FROM categories c
+  LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
+      WHERE c.deleted_at IS NULL AND c.id <> ?
+      ORDER BY name`,
+    [lang, id]
+  );
+
+  return res.json({
+    ok: true,
+    category: cat,
+    count: countRow?.n || 0,
+    posts,
+    candidates: others,
+    csrfToken: req.csrfToken ? req.csrfToken() : (res.locals.csrfToken || "")
+  });
+});
+
+// === Chuyển bài rồi đưa danh mục vào thùng rác ===
+router.post("/:id/reassign-and-trash", requireRoles("admin"), async (req, res) => {
+  const db = await getDb();
+  const oldId = Number(req.params.id);
+  const newId = Number(req.body.new_category_id || 0);
+  const forcePrimary = String(req.body.force_primary || "") === "1";
+
+  if (!newId) {
+    return res.status(400).json({ ok: false, error: "Vui lòng chọn danh mục đích" });
+  }
+  if (newId === oldId) {
+    return res.status(400).json({ ok: false, error: "Danh mục đích không được trùng danh mục xoá" });
   }
 
-  await db.run(`UPDATE categories SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id]);
-  return res.redirect("/admin/categories?ok=trashed");
+  try {
+    await db.run("BEGIN IMMEDIATE");
+
+    // Lấy toàn bộ liên kết post -> old category
+    const links = await db.all(
+      `SELECT post_id, is_primary FROM posts_categories WHERE category_id=?`,
+      [oldId]
+    );
+
+    for (const row of links) {
+      const pid = row.post_id;
+
+      // Nếu chưa có link tới newId => thêm
+      const exists = await db.get(
+        `SELECT 1 FROM posts_categories WHERE post_id=? AND category_id=?`,
+        [pid, newId]
+      );
+      if (!exists) {
+        await db.run(
+          `INSERT INTO posts_categories(post_id, category_id, is_primary) VALUES (?,?,0)`,
+          [pid, newId]
+        );
+      }
+
+      // Nếu old là primary và user chọn ép primary => chuyển primary sang newId
+      if (row.is_primary === 1 && forcePrimary) {
+        await db.run(`UPDATE posts_categories SET is_primary=0 WHERE post_id=?`, [pid]);
+        await db.run(
+          `UPDATE posts_categories SET is_primary=1 WHERE post_id=? AND category_id=?`,
+          [pid, newId]
+        );
+      }
+
+      // Xoá link cũ
+      await db.run(
+        `DELETE FROM posts_categories WHERE post_id=? AND category_id=?`,
+        [pid, oldId]
+      );
+    }
+
+    // Đưa danh mục vào thùng rác
+    await db.run(
+      `UPDATE categories SET deleted_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [oldId]
+    );
+
+    await db.run("COMMIT");
+    return res.json({ ok: true });
+  } catch (e) {
+    try { await db.run("ROLLBACK"); } catch {}
+    return res.status(409).json({ ok: false, error: e.message || String(e) });
+  }
 });
 
 export default router;
