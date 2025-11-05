@@ -34,6 +34,9 @@ import seoSettingsRoutes from "./routes/seo-settings.js";
 import seoPublicRoutes from "./routes/seo-public.js";
 import sitemapRoutes from './routes/sitemap.js';
 import robotsRoutes from './routes/robots.js';
+import { purgeActivityLogs } from "./services/activity.js";
+// ...
+cron.schedule("15 3 * * *",  async () => { try { await purgeActivityLogs(); } catch {} });
 
 // services (cron)
 import { runSchedulerTick } from "./services/scheduler.js";

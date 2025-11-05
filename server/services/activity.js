@@ -1,5 +1,7 @@
 // server/services/activity.js
 import { getDb } from '../utils/db.js';
+// server/services/activity.js (chèn thêm các hàm dưới vào cuối file)
+import { getSetting, setSetting } from "./settings.js";
 
 export async function ensureActivitySchema() {
   const db = await getDb();
@@ -47,4 +49,44 @@ export async function logActivity(userId, action, entityType, entityId, meta = n
       ua
     ]
   );
+}
+
+// Giữ retention_days trong settings (mặc định 90)
+export async function getRetentionDays() {
+  return parseInt((await getSetting("activity_logs.retention_days", "90")) || "90", 10);
+}
+export async function setRetentionDays(days) {
+  await setSetting("activity_logs.retention_days", String(days));
+}
+
+export async function purgeActivityLogs(days) {
+  const db = await getDb();
+  const n = parseInt(days || await getRetentionDays(), 10);
+  await db.run(`DELETE FROM activity_logs WHERE created_at < datetime('now', ?)`, [`-${n} days`]);
+  return true;
+}
+
+export async function exportActivityCsv(where, params) {
+  const db = await getDb();
+  const rows = await db.all(`
+    SELECT al.id, al.created_at, al.user_id, u.username, al.action,
+           al.entity_type, al.entity_id, al.ip, al.user_agent, al.extra_json
+    FROM activity_logs al
+    LEFT JOIN users u ON u.id = al.user_id
+    WHERE ${where}
+    ORDER BY al.created_at DESC
+  `, params);
+
+  const header = [
+    "id","created_at","user_id","username","action","entity_type","entity_id","ip","user_agent","extra_json"
+  ];
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    const esc = v => `"${String(v??"").replace(/"/g,'""')}"`;
+    lines.push([
+      r.id, r.created_at, r.user_id, r.username, r.action,
+      r.entity_type, r.entity_id, r.ip||"", r.user_agent||"", r.extra_json||""
+    ].map(esc).join(","));
+  }
+  return lines.join("\r\n");
 }

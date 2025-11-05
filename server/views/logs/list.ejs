@@ -1,0 +1,76 @@
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm"
+         href="/admin/logs/export?<%= new URLSearchParams(q).toString() %>">Export CSV</a>
+    </div>
+  </div>
+
+  <% if (ok) { %><div class="alert alert-success"><%= ok %></div><% } %>
+  <% if (err) { %><div class="alert alert-danger"><%= err %></div><% } %>
+
+  <form class="card mb-3" method="get" action="/admin/logs">
+    <div class="card-header"><strong>Bộ lọc</strong></div>
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-2"><input class="form-control" name="user_id" placeholder="User ID" value="<%= q.user_id||'' %>"></div>
+        <div class="col-md-2"><input class="form-control" name="action" placeholder="Action" value="<%= q.action||'' %>"></div>
+        <div class="col-md-2"><input class="form-control" name="entity_type" placeholder="Entity (page/post/...)" value="<%= q.entity_type||'' %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="date_from" value="<%= q.date_from||'' %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="date_to" value="<%= q.date_to||'' %>"></div>
+        <div class="col-md-2"><input class="form-control" name="q" placeholder="Tìm kiếm meta/json" value="<%= q.q||'' %>"></div>
+      </div>
+    </div>
+    <div class="card-footer text-end">
+      <button class="btn btn-primary btn-sm">Lọc</button>
+      <a class="btn btn-outline-secondary btn-sm" href="/admin/logs">Reset</a>
+    </div>
+  </form>
+
+  <form class="card" method="post" action="/admin/logs/cleanup">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Kết quả</strong>
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-muted">Auto-cleanup (ngày giữ):</span>
+        <input class="form-control form-control-sm" style="width:90px" name="retention_days" value="<%= retention_days %>">
+        <button class="btn btn-outline-danger btn-sm" onclick="return confirm('Xoá log cũ ngay?')">Ch dọn ngay</button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:80px;">ID</th>
+              <th>Thời gian</th>
+              <th>User</th>
+              <th>Action</th>
+              <th>Entity</th>
+              <th>Entity ID</th>
+              <th>IP</th>
+              <th>User Agent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!rows || !rows.length) { %>
+              <tr><td colspan="8" class="text-center text-muted py-4">Không có dữ liệu.</td></tr>
+            <% } else { rows.forEach(r => { %>
+              <tr>
+                <td><code><%= r.id %></code></td>
+                <td><%= r.created_at %></td>
+                <td><%= r.username || r.user_id || '—' %></td>
+                <td><%= r.action %></td>
+                <td><%= r.entity_type %></td>
+                <td><%= r.entity_id %></td>
+                <td><%= r.ip || '—' %></td>
+                <td class="text-truncate" style="max-width:320px;"><%= r.user_agent || '' %></td>
+              </tr>
+            <% }) } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+</div>

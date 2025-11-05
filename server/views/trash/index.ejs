@@ -1,172 +1,94 @@
+<% const okMsg  = typeof ok  !== 'undefined' ? ok  : ''; %>
+<% const errMsg = typeof err !== 'undefined' ? err : ''; %>
+<% const currentTab = tab || 'posts'; %>
 <%
-// ------- Safe defaults to avoid "is not defined" -------
-const okMsg  = (typeof ok  !== 'undefined' && ok)  ? ok  : '';
-const errMsg = (typeof err !== 'undefined' && err) ? err : '';
-const active = (typeof tab !== 'undefined' && tab) ? tab : 'posts';
+  const tabToEntity = { pages:'page', posts:'post', categories:'category', tags:'tag', media:'media' };
+  const entity = tabToEntity[currentTab] || 'post';
+%>
 
-// Helper to render a common table row (defensively handles missing fields)
-function renderRow(r, type) { %>
-  <tr>
-    <td><code><%= r.id %></code></td>
-    <td><%= r.title || r.name || '(Không tiêu đề)' %></td>
-    <td><%= r.slug || '—' %></td>
-    <td><%= r.deleted_by || r.deleter_name || r.deleter_username || '—' %></td>
-    <td><%= r.deleted_at || '—' %></td>
-    <td class="text-end">
-      <% if (type === 'pages') { %>
-        <form action="/admin/trash/pages/<%= r.id %>/restore" method="post" class="d-inline">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-success">Khôi phục</button>
-        </form>
-        <form action="/admin/trash/pages/<%= r.id %>/delete" method="post" class="d-inline"
-              onsubmit="return confirm('Xoá vĩnh viễn trang này? Thao tác không thể hoàn tác!')">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
-        </form>
-      <% } else if (type === 'posts') { %>
-        <form action="/admin/trash/posts/<%= r.id %>/restore" method="post" class="d-inline">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-success">Khôi phục</button>
-        </form>
-        <form action="/admin/trash/posts/<%= r.id %>/delete" method="post" class="d-inline"
-              onsubmit="return confirm('Xoá vĩnh viễn bài viết này? Thao tác không thể hoàn tác!')">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
-        </form>
-      <% } else if (type === 'categories') { %>
-        <form action="/admin/trash/categories/<%= r.id %>/restore" method="post" class="d-inline">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-success">Khôi phục</button>
-        </form>
-        <form action="/admin/trash/categories/<%= r.id %>/delete" method="post" class="d-inline"
-              onsubmit="return confirm('Xoá vĩnh viễn danh mục này? Thao tác không thể hoàn tác!')">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-sm btn-danger">Xoá hẳn</button>
-        </form>
-      <% } %>
-    </td>
-  </tr>
-<% } %>
-
-<!-- server/views/trash/index.ejs -->
 <div class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0"><%= pageTitle %></h1>
-
+    <h1 class="h4 m-0">Thùng rác</h1>
     <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary btn-sm <%= (active==='pages' ? 'active' : '') %>" href="/admin/trash?tab=pages">Trang đã xoá</a>
-      <a class="btn btn-outline-secondary btn-sm <%= (active==='posts' ? 'active' : '') %>" href="/admin/trash?tab=posts">Bài viết đã xoá</a>
-      <a class="btn btn-outline-secondary btn-sm <%= (active==='categories' ? 'active' : '') %>" href="/admin/trash?tab=categories">Danh mục đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (currentTab==='pages'?'active':'') %>" href="/admin/trash?tab=pages">Trang đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (currentTab==='posts'?'active':'') %>" href="/admin/trash?tab=posts">Bài viết đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (currentTab==='categories'?'active':'') %>" href="/admin/trash?tab=categories">Danh mục đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (currentTab==='tags'?'active':'') %>" href="/admin/trash?tab=tags">Thẻ đã xoá</a>
+      <a class="btn btn-outline-secondary btn-sm <%= (currentTab==='media'?'active':'') %>" href="/admin/trash?tab=media">Media đã xoá</a>
 
-      <!-- Nếu bạn CHƯA có route /admin/trash/empty thì có thể tạm ẩn form này -->
-      <form method="post" action="/admin/trash/empty?tab=<%= active %>"
-            onsubmit="return confirm('Xoá vĩnh viễn TẤT CẢ mục trong thùng rác hiện tại?');">
+      <form method="post" action="/admin/trash/empty?tab=<%= currentTab %>" onsubmit="return confirm('Xoá vĩnh viễn TẤT CẢ mục trong tab hiện tại?');">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button class="btn btn-danger btn-sm">Xoá toàn bộ</button>
       </form>
     </div>
   </div>
 
-  <% if (okMsg) { %>
-    <div class="alert alert-success">Thao tác thành công: <%= okMsg %></div>
-  <% } %>
-  <% if (errMsg) { %>
-    <div class="alert alert-danger">Lỗi: <%= errMsg %></div>
-  <% } %>
+  <% if (okMsg) { %><div class="alert alert-success">Thao tác thành công: <%= okMsg %></div><% } %>
+  <% if (errMsg) { %><div class="alert alert-danger">Lỗi: <%= errMsg %></div><% } %>
 
-  <!-- PAGES TAB -->
-  <% if (active === 'pages') { %>
-    <div class="card">
-      <div class="card-header"><strong>Trang đã xoá</strong></div>
-      <div class="card-body p-0">
+  <div class="card">
+    <div class="card-body p-0">
+      <form method="post" action="/admin/trash/bulk?tab=<%= currentTab %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="d-flex gap-2 p-3 border-bottom align-items-center">
+          <select name="action" class="form-select form-select-sm" style="width:auto;">
+            <option value="">— Bulk actions —</option>
+            <option value="restore">Khôi phục</option>
+            <option value="destroy">Xoá hẳn</option>
+          </select>
+          <button class="btn btn-sm btn-primary">Áp dụng</button>
+        </div>
+
         <div class="table-responsive">
           <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
+                <th style="width:40px;"><input type="checkbox" onclick="document.querySelectorAll('input[name=\'ids[]\']').forEach(c=>c.checked=this.checked)"></th>
                 <th style="width:80px;">ID</th>
                 <th>Tiêu đề</th>
-                <th>Slug</th>
+                <th>Slug / URL</th>
                 <th>Người xoá</th>
-                <th>Thời gian xoá</th>
-                <th class="text-end" style="width:180px;">Thao tác</th>
+                <th>Thời gian xoá (log)</th>
+                <th>Đã xoá lúc (record)</th>
+                <th style="width:180px;" class="text-end">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              <% if (!pages || !pages.length) { %>
-                <tr><td colspan="6" class="text-center text-muted py-4">Không có trang nào trong thùng rác.</td></tr>
+              <% if (!rows || !rows.length) { %>
+                <tr><td colspan="8" class="text-center text-muted py-4">Chưa có mục nào trong thùng rác.</td></tr>
               <% } else { %>
-                <% pages.forEach(r => { %>
-                  <%= renderRow(r, 'pages') %>
+                <% rows.forEach(r => { %>
+                  <tr>
+                    <td><input type="checkbox" name="ids[]" value="<%= r.id %>"></td>
+                    <td><code><%= r.id %></code></td>
+                    <td><%= r.title || '(Không tiêu đề)' %></td>
+                    <td><%= r.slug || r.url || '' %></td>
+                    <td><%= r.deleter_username || '—' %></td>
+                    <td><%= r.deleted_time || '—' %></td>
+                    <td><%= r.deleted_at  || '—' %></td>
+                    <td class="text-end">
+                      <form action="/admin/trash/<%= entity %>/<%= r.id %>/edit" method="post" class="d-inline">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button class="btn btn-sm btn-primary">Sửa</button>
+                      </form>
+                      <form action="/admin/trash/<%= entity %>/<%= r.id %>/restore" method="post" class="d-inline">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button class="btn btn-sm btn-success">Khôi phục</button>
+                      </form>
+                      <form action="/admin/trash/<%= entity %>/<%= r.id %>/destroy" method="post" class="d-inline"
+                            onsubmit="return confirm('Xoá vĩnh viễn mục này? Hành động không thể hoàn tác!')">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button class="btn btn-sm btn-danger">Xoá hẳn</button>
+                      </form>
+                    </td>
+                  </tr>
                 <% }) %>
               <% } %>
             </tbody>
           </table>
         </div>
-      </div>
+      </form>
     </div>
-  <% } %>
-
-  <!-- POSTS TAB -->
-  <% if (active === 'posts') { %>
-    <div class="card">
-      <div class="card-header"><strong>Bài viết đã xoá</strong></div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-striped table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th style="width:80px;">ID</th>
-                <th>Tiêu đề</th>
-                <th>Slug</th>
-                <th>Người xoá</th>
-                <th>Thời gian xoá</th>
-                <th class="text-end" style="width:180px;">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% if (!posts || !posts.length) { %>
-                <tr><td colspan="6" class="text-center text-muted py-4">Không có bài viết nào trong thùng rác.</td></tr>
-              <% } else { %>
-                <% posts.forEach(r => { %>
-                  <%= renderRow(r, 'posts') %>
-                <% }) %>
-              <% } %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  <% } %>
-
-  <!-- CATEGORIES TAB -->
-  <% if (active === 'categories') { %>
-    <div class="card">
-      <div class="card-header"><strong>Danh mục đã xoá</strong></div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-striped table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th style="width:80px;">ID</th>
-                <th>Tên danh mục</th>
-                <th>Slug</th>
-                <th>Người xoá</th>
-                <th>Thời gian xoá</th>
-                <th class="text-end" style="width:180px;">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% if (!categories || !categories.length) { %>
-                <tr><td colspan="6" class="text-center text-muted py-4">Không có danh mục nào trong thùng rác.</td></tr>
-              <% } else { %>
-                <% categories.forEach(r => { %>
-                  <%= renderRow(r, 'categories') %>
-                <% }) %>
-              <% } %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  <% } %>
+  </div>
 </div>

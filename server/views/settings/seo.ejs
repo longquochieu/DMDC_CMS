@@ -4,23 +4,48 @@
     <h1 class="h4 m-0"><%= pageTitle %></h1>
   </div>
 
-	  <% if (typeof ok !== 'undefined' && ok) { %>
-		<div class="alert alert-success">Đã lưu cài đặt SEO.</div>
-	  <% } %>
-
-	  <% if (typeof err !== 'undefined' && err) { %>
-		<div class="alert alert-danger"><%= err %></div>
-	  <% } %>
+  <% if (typeof ok !== 'undefined' && ok) { %>
+    <div class="alert alert-success">Đã lưu cài đặt SEO.</div>
+  <% } %>
+  <% if (typeof err !== 'undefined' && err) { %>
+    <div class="alert alert-danger"><%= err %></div>
+  <% } %>
 
   <form method="post" action="/admin/settings/seo">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
     <ul class="nav nav-tabs mb-3" role="tablist">
-      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#seo-general" type="button" role="tab">Cài đặt chung</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-patterns" type="button" role="tab">Mẫu (Patterns)</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-sitemap" type="button" role="tab">Sitemap</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-robots" type="button" role="tab">robots.txt</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-social" type="button" role="tab">Mạng xã hội</button></li>
+	  <!-- NEW: GA4 -->
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-analytics" type="button" role="tab">
+			Google Analytics
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#seo-general" type="button" role="tab">
+          Cài đặt chung
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-patterns" type="button" role="tab">
+          Mẫu (Patterns)
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-sitemap" type="button" role="tab">
+          Sitemap
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-robots" type="button" role="tab">
+          robots.txt
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#seo-social" type="button" role="tab">
+          Mạng xã hội
+        </button>
+      </li>
     </ul>
 
     <div class="tab-content">
@@ -32,27 +57,29 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Site Name (Thương hiệu)</label>
-                <input class="form-control" name="seo.site_name" value="<%= data['seo.site_name'] %>">
+                <input class="form-control" name="seo.site_name" value="<%= (data && data['seo.site_name']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Site URL (ví dụ: https://example.com)</label>
-                <input class="form-control" name="seo.site_url" value="<%= data['seo.site_url'] %>">
+                <input class="form-control" name="seo.site_url" value="<%= (data && data['seo.site_url']) || '' %>">
               </div>
             </div>
 
             <div class="row g-3 mt-1">
               <div class="col-md-4">
                 <label class="form-label">Title separator</label>
-                <input class="form-control" name="seo.title_separator" value="<%= data['seo.title_separator'] %>">
+                <input class="form-control" name="seo.title_separator" value="<%= (data && data['seo.title_separator']) || '' %>">
                 <div class="form-text">Ví dụ: " | " hoặc " - "</div>
               </div>
               <div class="col-md-8 d-flex align-items-end">
                 <div class="form-check me-4">
-                  <input class="form-check-input" type="checkbox" name="seo.default_index" id="seo_default_index" <%= data['seo.default_index'] === '1' ? 'checked' : '' %>>
+                  <input class="form-check-input" type="checkbox" name="seo.default_index" id="seo_default_index"
+                    <%= (data && data['seo.default_index'] === '1') ? 'checked' : '' %>>
                   <label class="form-check-label" for="seo_default_index">Index (mặc định)</label>
                 </div>
                 <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="seo.default_follow" id="seo_default_follow" <%= data['seo.default_follow'] === '1' ? 'checked' : '' %>>
+                  <input class="form-check-input" type="checkbox" name="seo.default_follow" id="seo_default_follow"
+                    <%= (data && data['seo.default_follow'] === '1') ? 'checked' : '' %>>
                   <label class="form-check-label" for="seo_default_follow">Follow (mặc định)</label>
                 </div>
               </div>
@@ -61,11 +88,11 @@
             <div class="row g-3 mt-1">
               <div class="col-md-6">
                 <label class="form-label">OG Default Image URL</label>
-                <input class="form-control" name="seo.og.default_image_url" value="<%= data['seo.og.default_image_url'] %>">
+                <input class="form-control" name="seo.og.default_image_url" value="<%= (data && data['seo.og.default_image_url']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Twitter Default Image URL</label>
-                <input class="form-control" name="seo.twitter.default_image_url" value="<%= data['seo.twitter.default_image_url'] %>">
+                <input class="form-control" name="seo.twitter.default_image_url" value="<%= (data && data['seo.twitter.default_image_url']) || '' %>">
               </div>
             </div>
           </div>
@@ -78,34 +105,35 @@
           <div class="card-header"><strong>Mẫu SEO Title & Meta Description</strong></div>
           <div class="card-body">
             <div class="alert alert-info">
-              Biến có thể dùng: <code>%title%</code>, <code>%site%</code>, <code>%sep%</code>, <code>%category%</code>, <code>%excerpt%</code>
+              Biến có thể dùng:
+              <code>%title%</code>, <code>%site%</code>, <code>%sep%</code>, <code>%category%</code>, <code>%excerpt%</code>
             </div>
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Post Title Pattern</label>
-                <input class="form-control" name="seo.pattern.post.title" value="<%= data['seo.pattern.post.title'] %>">
+                <input class="form-control" name="seo.pattern.post.title" value="<%= (data && data['seo.pattern.post.title']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Post Description Pattern</label>
-                <input class="form-control" name="seo.pattern.post.description" value="<%= data['seo.pattern.post.description'] %>">
+                <input class="form-control" name="seo.pattern.post.description" value="<%= (data && data['seo.pattern.post.description']) || '' %>">
               </div>
 
               <div class="col-md-6">
                 <label class="form-label">Page Title Pattern</label>
-                <input class="form-control" name="seo.pattern.page.title" value="<%= data['seo.pattern.page.title'] %>">
+                <input class="form-control" name="seo.pattern.page.title" value="<%= (data && data['seo.pattern.page.title']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Page Description Pattern</label>
-                <input class="form-control" name="seo.pattern.page.description" value="<%= data['seo.pattern.page.description'] %>">
+                <input class="form-control" name="seo.pattern.page.description" value="<%= (data && data['seo.pattern.page.description']) || '' %>">
               </div>
 
               <div class="col-md-6">
                 <label class="form-label">Category Title Pattern</label>
-                <input class="form-control" name="seo.pattern.category.title" value="<%= data['seo.pattern.category.title'] %>">
+                <input class="form-control" name="seo.pattern.category.title" value="<%= (data && data['seo.pattern.category.title']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Category Description Pattern</label>
-                <input class="form-control" name="seo.pattern.category.description" value="<%= data['seo.pattern.category.description'] %>">
+                <input class="form-control" name="seo.pattern.category.description" value="<%= (data && data['seo.pattern.category.description']) || '' %>">
               </div>
             </div>
           </div>
@@ -115,39 +143,55 @@
       <!-- Sitemap -->
       <div class="tab-pane fade" id="seo-sitemap" role="tabpanel">
         <div class="card mb-3">
-          <div class="card-header"><strong>Sitemap</strong></div>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Sitemap</strong>
+            <!-- NEW: nút xem nhanh -->
+            <a href="/sitemap.xml" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Xem sitemap</a>
+          </div>
           <div class="card-body">
             <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" id="sitemap_enabled" name="seo.sitemap.enabled" <%= data['seo.sitemap.enabled'] === '1' ? 'checked' : '' %>>
+              <input class="form-check-input" type="checkbox" id="sitemap_enabled" name="seo.sitemap.enabled"
+                <%= (data && data['seo.sitemap.enabled'] === '1') ? 'checked' : '' %>>
               <label class="form-check-label" for="sitemap_enabled">Bật sitemap tại <code>/sitemap.xml</code></label>
             </div>
 
             <div class="row g-3">
               <div class="col-md-4">
                 <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="sitemap_posts" name="seo.sitemap.include_posts" <%= data['seo.sitemap.include_posts'] === '1' ? 'checked' : '' %>>
+                  <input class="form-check-input" type="checkbox" id="sitemap_posts" name="seo.sitemap.include_posts"
+                    <%= (data && data['seo.sitemap.include_posts'] === '1') ? 'checked' : '' %>>
                   <label class="form-check-label" for="sitemap_posts">Bao gồm Posts</label>
                 </div>
                 <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="sitemap_pages" name="seo.sitemap.include_pages" <%= data['seo.sitemap.include_pages'] === '1' ? 'checked' : '' %>>
+                  <input class="form-check-input" type="checkbox" id="sitemap_pages" name="seo.sitemap.include_pages"
+                    <%= (data && data['seo.sitemap.include_pages'] === '1') ? 'checked' : '' %>>
                   <label class="form-check-label" for="sitemap_pages">Bao gồm Pages</label>
                 </div>
                 <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="sitemap_categories" name="seo.sitemap.include_categories" <%= data['seo.sitemap.include_categories'] === '1' ? 'checked' : '' %>>
+                  <input class="form-check-input" type="checkbox" id="sitemap_categories" name="seo.sitemap.include_categories"
+                    <%= (data && data['seo.sitemap.include_categories'] === '1') ? 'checked' : '' %>>
                   <label class="form-check-label" for="sitemap_categories">Bao gồm Categories</label>
                 </div>
+                <!-- NEW: exclude noindex -->
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="sitemap_exclude_noindex" name="seo.sitemap.exclude_noindex"
+                    <%= (data && data['seo.sitemap.exclude_noindex'] === '1') ? 'checked' : '' %>>
+                  <label class="form-check-label" for="sitemap_exclude_noindex">Loại trừ trang đánh dấu noindex</label>
+                </div>
               </div>
+
               <div class="col-md-4">
                 <label class="form-label">changefreq</label>
                 <select class="form-select" name="seo.sitemap.changefreq">
                   <% ['always','hourly','daily','weekly','monthly','yearly','never'].forEach(opt => { %>
-                    <option value="<%= opt %>" <%= data['seo.sitemap.changefreq']===opt ? 'selected':'' %>><%= opt %></option>
+                    <option value="<%= opt %>" <%= (data && data['seo.sitemap.changefreq']===opt) ? 'selected':'' %>><%= opt %></option>
                   <% }) %>
                 </select>
               </div>
+
               <div class="col-md-4">
                 <label class="form-label">priority</label>
-                <input class="form-control" name="seo.sitemap.priority" value="<%= data['seo.sitemap.priority'] %>">
+                <input class="form-control" name="seo.sitemap.priority" value="<%= (data && data['seo.sitemap.priority']) || '' %>">
               </div>
             </div>
           </div>
@@ -157,14 +201,19 @@
       <!-- Robots -->
       <div class="tab-pane fade" id="seo-robots" role="tabpanel">
         <div class="card mb-3">
-          <div class="card-header"><strong>robots.txt</strong></div>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>robots.txt</strong>
+            <!-- NEW: nút xem nhanh -->
+            <a href="/robots.txt" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Xem robots.txt</a>
+          </div>
           <div class="card-body">
             <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" id="robots_enabled" name="seo.robots.enabled" <%= data['seo.robots.enabled'] === '1' ? 'checked' : '' %>>
+              <input class="form-check-input" type="checkbox" id="robots_enabled" name="seo.robots.enabled"
+                <%= (data && data['seo.robots.enabled'] === '1') ? 'checked' : '' %>>
               <label class="form-check-label" for="robots_enabled">Bật robots.txt tại <code>/robots.txt</code></label>
             </div>
             <label class="form-label">Custom lines (tùy chỉnh)</label>
-            <textarea class="form-control" rows="6" name="seo.robots.custom"><%= data['seo.robots.custom'] %></textarea>
+            <textarea class="form-control" rows="6" name="seo.robots.custom"><%= (data && data['seo.robots.custom']) || '' %></textarea>
             <div class="form-text">Ví dụ: <code>Disallow: /admin</code></div>
           </div>
         </div>
@@ -178,12 +227,65 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Default Social Title</label>
-                <input class="form-control" name="seo.social.default_title" value="<%= data['seo.social.default_title'] %>">
+                <input class="form-control" name="seo.social.default_title" value="<%= (data && data['seo.social.default_title']) || '' %>">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Default Social Description</label>
-                <input class="form-control" name="seo.social.default_description" value="<%= data['seo.social.default_description'] %>">
+                <input class="form-control" name="seo.social.default_description" value="<%= (data && data['seo.social.default_description']) || '' %>">
               </div>
+            </div>
+
+            <!-- NEW: Bổ sung OG/Twitter default title/description -->
+            <hr class="my-4">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">OG Default Title</label>
+                <input class="form-control" name="seo.og.default_title" value="<%= (data && data['seo.og.default_title']) || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">OG Default Description</label>
+                <input class="form-control" name="seo.og.default_description" value="<%= (data && data['seo.og.default_description']) || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Twitter Default Title</label>
+                <input class="form-control" name="seo.twitter.default_title" value="<%= (data && data['seo.twitter.default_title']) || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Twitter Default Description</label>
+                <input class="form-control" name="seo.twitter.default_description" value="<%= (data && data['seo.twitter.default_description']) || '' %>">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEW: Analytics (GA4) -->
+      <div class="tab-pane fade" id="seo-analytics" role="tabpanel">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Google Analytics 4 (GA4)</strong></div>
+          <div class="card-body">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="ga4_enabled" name="seo.ga4.enabled"
+                <%= (data && data['seo.ga4.enabled'] === '1') ? 'checked' : '' %>>
+              <label class="form-check-label" for="ga4_enabled">Bật GA4</label>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Measurement ID (G-XXXXXXX)</label>
+                <input class="form-control" name="seo.ga4.measurement_id" value="<%= (data && data['seo.ga4.measurement_id']) || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Debug View (tùy chọn)</label>
+                <input class="form-control" name="seo.ga4.debug" placeholder="true/false" value="<%= (data && data['seo.ga4.debug']) || '' %>">
+                <div class="form-text">Nhập <code>true</code> để bật chế độ debug.</div>
+              </div>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="ga4_anonymize_ip" name="seo.ga4.anonymize_ip"
+                <%= (data && data['seo.ga4.anonymize_ip'] === '1') ? 'checked' : '' %>>
+              <label class="form-check-label" for="ga4_anonymize_ip">Ẩn địa chỉ IP (anonymizeIp)</label>
             </div>
           </div>
         </div>
