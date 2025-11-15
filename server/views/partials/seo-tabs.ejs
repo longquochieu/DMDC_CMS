@@ -10,9 +10,6 @@
         <button class="nav-link active" id="seo-basic-tab" data-bs-toggle="tab" data-bs-target="#seo-basic" type="button" role="tab">Cài đặt chung</button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="seo-advanced-tab" data-bs-toggle="tab" data-bs-target="#seo-advanced" type="button" role="tab">Cài đặt nâng cao</button>
-      </li>
-      <li class="nav-item" role="presentation">
         <button class="nav-link" id="seo-social-tab" data-bs-toggle="tab" data-bs-target="#seo-social" type="button" role="tab">Social</button>
       </li>
     </ul>
@@ -53,30 +50,34 @@
               <option value="nofollow" <%= (seo && seo.robots_follow)==='nofollow' ? 'selected' : '' %>>nofollow</option>
             </select>
           </div>
-          <div class="col-md-4">
-            <label class="form-label">Robots nâng cao</label>
-            <input type="text" class="form-control" name="seo[robots_advanced]" value="<%= (seo && seo.robots_advanced) || '' %>" placeholder="noarchive, nosnippet, …">
+		   <div class="col-md-4">
+            <label class="form-label">Robots nâng cao</label> <input type="text" class="form-control" name="seo[robots_advanced]" value="<%= (seo && seo.robots_advanced) || '' %>" placeholder="noarchive, nosnippet, …">
           </div>
         </div>
-      </div>
-
-      <!-- Tab 2: Nâng cao -->
-      <div class="tab-pane fade" id="seo-advanced" role="tabpanel">
-        <div class="mb-3">
+		<div class="mb-3">
           <label class="form-label">Canonical URL</label>
           <input type="text" class="form-control" name="seo[canonical]" value="<%= (seo && seo.canonical) || '' %>">
         </div>
         <div class="mb-3">
           <label class="form-label">Schema Type</label>
-          <input type="text" class="form-control" name="seo[schema_type]" value="<%= (seo && seo.schema_type) || '' %>" placeholder="Article, WebPage, Organization, …">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Schema JSON-LD</label>
-          <textarea class="form-control" name="seo[schema_jsonld]" rows="6" placeholder='{"@context":"https://schema.org","@type":"Article",...}'><%= (seo && seo.schema_jsonld) || '' %></textarea>
+          <select name="seo_schema_type" class="form-control">
+			<% const _schemaTypes = [
+			  "Article","Product","Local Business","Event","Recipe",
+			  "FAQ","Organization","Person","Breadcrumb","Job Posting",
+			  "Course","Service"
+			]; %>
+			<% const cur = (seo && seo.schema_type) || (seoDefaults && seoDefaults.schema_type) || ""; %>
+			<% _schemaTypes.forEach(t => { %>
+			  <option value="<%= t %>" <%= cur===t ? 'selected' : '' %>><%= t %></option>
+			<% }) %>
+		  </select>
+		  <small class="form-text text-muted">
+			Chọn loại Schema theo chuẩn Google/Schema.org. Nếu nhập JSON-LD tùy chỉnh bên dưới, hệ thống sẽ ưu tiên JSON-LD đó.
+		  </small>
         </div>
       </div>
 
-      <!-- Tab 3: Social -->
+      <!-- Tab 2: Social -->
       <div class="tab-pane fade" id="seo-social" role="tabpanel">
         <div class="row g-3">
           <div class="col-md-12">

@@ -1,0 +1,34 @@
+<%
+// an toàn khi include: lấy user từ tham số truyền vào (user) hoặc res.locals.user
+const me = (typeof user !== 'undefined' && user) ? user : ((typeof res !== 'undefined' && res.locals) ? res.locals.user : null);
+const displayName = (me && (me.display_name || me.username)) || 'Tài khoản';
+const avatar = (me && me.avatar) ? me.avatar : '/assets/logo/Logo_TachNen.png';// thay bằng ảnh có sẵn của bạn nếu khác
+%>
+
+<div class="dropdown me-2">
+  <a href="#" class="d-flex align-items-center text-decoration-none" data-bs-toggle="dropdown" aria-expanded="false">
+    <img src="<%= avatar %>" alt="avatar" class="rounded-circle" style="width:32px;height:32px;object-fit:cover;">
+    <span class="ms-2 d-none d-sm-inline"><%= displayName %></span>
+    <i class="fas fa-caret-down ms-1"></i>
+  </a>
+  <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+    <li>
+      <a class="dropdown-item" href="/admin/profile" title="Hồ sơ của tôi">
+        <i class="fas fa-id-badge me-2"></i> Hồ sơ của tôi
+      </a>
+    </li>
+    <% if (me && me.id) { %>
+    <li>
+      <a class="dropdown-item" href="/admin/users/<%= me.id %>/edit?tab=security" title="Đổi mật khẩu">
+        <i class="fas fa-key me-2"></i> Đổi mật khẩu
+      </a>
+    </li>
+    <% } %>
+	<!-- Logout -->
+	<li>
+		<a class="dropdown-item" href="/logout" title="Đăng xuất">
+			<i class="fas fa-sign-out-alt"></i> Đăng Xuất
+		</a>
+	</li>
+  </ul>
+</div>

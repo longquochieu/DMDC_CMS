@@ -1,0 +1,23 @@
+<div class="row g-3">
+  <% if (!rows || !rows.length) { %>
+    <div class="col-12 text-center text-muted">Không có tài liệu</div>
+  <% } else { %>
+    <% rows.forEach(r => { const isImg = r.mime && r.mime.startsWith('image/'); %>
+      <div class="col-6 col-md-4 col-lg-3">
+        <div class="card h-100">
+          <div class="ratio ratio-4x3 bg-light d-flex align-items-center justify-content-center">
+            <% if (isImg) { %>
+              <img src="<%= r.url %>" alt="" class="img-fluid" style="object-fit:cover;">
+            <% } else { %>
+              <i class="far fa-file fa-2x text-muted"></i>
+            <% } %>
+          </div>
+          <div class="card-body p-2 small">
+            <div class="text-truncate" title="<%= r.filename %>"><%= r.filename %></div>
+            <div class="text-muted"><%= r.mime || '' %></div>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  <% } %>
+</div>

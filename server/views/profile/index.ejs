@@ -1,0 +1,111 @@
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
+  </div>
+
+  <% if (ok) { %><div class="alert alert-success">OK: <%= ok %></div><% } %>
+  <% if (err) { %><div class="alert alert-danger">Lỗi: <%= err %></div><% } %>
+
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-overview" type="button">Tổng quan</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-info" type="button">Thông tin</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-security" type="button">Bảo mật</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-prefs" type="button">Tuỳ chọn</button></li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="tab-overview">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-3">
+            <% if (me?.avatar_url) { %>
+              <img src="<%= me.avatar_url %>" width="64" height="64" class="rounded-circle" />
+            <% } %>
+            <div>
+              <div class="fs-5 fw-semibold"><%= me?.display_name || me?.username %></div>
+              <div class="text-muted">@<%= me?.username %> · <%= me?.email %> · <span class="badge bg-secondary text-uppercase"><%= me?.role %></span></div>
+            </div>
+          </div>
+          <div class="row g-3 mt-2">
+            <div class="col-md-3"><small class="text-muted">Last login</small><div><%= me?.last_login || '—' %></div></div>
+            <div class="col-md-3"><small class="text-muted">Last activity</small><div><%= me?.last_activity || '—' %></div></div>
+            <div class="col-md-3"><small class="text-muted">Timezone</small><div><%= me?.timezone || '—' %></div></div>
+            <div class="col-md-3"><small class="text-muted">Theme</small><div><%= me?.theme || '—' %></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-info">
+      <form method="post" action="/admin/profile/info">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Thông tin cá nhân</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label">Display name</label><input class="form-control" name="display_name" value="<%= me?.display_name||'' %>"></div>
+              <div class="col-md-6"><label class="form-label">Avatar URL</label><input class="form-control" name="avatar_url" value="<%= me?.avatar_url||'' %>"></div>
+              <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" name="phone" value="<%= me?.phone||'' %>"></div>
+              <div class="col-md-12"><label class="form-label">Bio</label><textarea class="form-control" rows="3" name="bio"><%= me?.bio||'' %></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div class="text-end mb-4"><button class="btn btn-primary">Lưu</button></div>
+      </form>
+    </div>
+
+    <div class="tab-pane fade" id="tab-security">
+      <form method="post" action="/admin/profile/security/password">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Đổi mật khẩu</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">Mật khẩu hiện tại</label><input class="form-control" name="current_password" type="password"></div>
+              <div class="col-md-4"><label class="form-label">Mật khẩu mới</label><input class="form-control" name="new_password" type="password"></div>
+              <div class="col-md-4"><label class="form-label">Xác nhận</label><input class="form-control" name="confirm" type="password"></div>
+            </div>
+          </div>
+        </div>
+        <div class="text-end mb-4"><button class="btn btn-warning">Đổi mật khẩu</button></div>
+      </form>
+    </div>
+
+    <div class="tab-pane fade" id="tab-prefs">
+      <form method="post" action="/admin/profile/prefs">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Tuỳ chọn</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">Locale</label><input class="form-control" name="locale" value="<%= me?.locale||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Timezone</label><input class="form-control" name="timezone" value="<%= me?.timezone||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Items/page</label><input class="form-control" type="number" name="items_per_page" value="<%= me?.items_per_page||'' %>"></div>
+
+              <div class="col-md-4"><label class="form-label">Date format</label><input class="form-control" name="date_format" value="<%= me?.date_format||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Time format</label><input class="form-control" name="time_format" value="<%= me?.time_format||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Editor mode</label><input class="form-control" name="editor_mode" value="<%= me?.editor_mode||'' %>"></div>
+
+              <div class="col-md-4"><label class="form-label">Theme</label><input class="form-control" name="theme" value="<%= me?.theme||'' %>"></div>
+              <div class="col-md-4 form-check mt-4 ms-3">
+                <input class="form-check-input" type="checkbox" id="sidebar_collapsed2" name="sidebar_collapsed" <%= me?.sidebar_collapsed?'checked':'' %>>
+                <label class="form-check-label" for="sidebar_collapsed2">Thu gọn sidebar</label>
+              </div>
+              <div class="col-md-4 d-flex align-items-center gap-4">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="notify_inapp2" name="notify_inapp" <%= me?.notify_inapp?'checked':'' %>>
+                  <label class="form-check-label" for="notify_inapp2">Thông báo trong app</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="notify_email2" name="notify_email" <%= me?.notify_email?'checked':'' %>>
+                  <label class="form-check-label" for="notify_email2">Thông báo email</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="text-end mb-4"><button class="btn btn-primary">Lưu tuỳ chọn</button></div>
+      </form>
+    </div>
+  </div>
+</div>

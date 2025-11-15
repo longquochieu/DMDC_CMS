@@ -1,120 +1,86 @@
-// server/routes/categories.js
 import express from "express";
 import { requireAuth, requireRoles } from "../middlewares/auth.js";
 import { getDb } from "../utils/db.js";
 import { getSetting } from "../services/settings.js";
 import { toSlug } from "../utils/strings.js";
-import { getCategoriesTree } from "../services/categories_tree.js";
 import { getSeo, saveSeo, getSeoDefaults } from "../services/seo.js";
 
 const router = express.Router();
 
 /* ===== LIST (BẢNG) ===== */
-router.get('/', requireAuth, async (req, res) => {
-  const db   = await getDb();
-  const lang = await getSetting('default_language', 'vi');
+router.get("/", requireAuth, async (req, res) => {
+  const db = await getDb();
+  const lang = await getSetting("default_language", "vi");
 
-  const rows = await db.all(`
-    SELECT
-      c.id,
-      c.parent_id,
-      c.order_index,
-      c.created_at,
-      c.created_by,
-      u.username        AS author,
-      ct.name           AS title,
-      ct.slug           AS slug,
-      pt.name           AS parent_title,
-      (
-        SELECT COUNT(*)
-        FROM posts_categories pc
-        JOIN posts p ON p.id = pc.post_id AND p.deleted_at IS NULL
-        WHERE pc.category_id = c.id
-      ) AS post_count
-    FROM categories c
-    LEFT JOIN categories_translations ct
-      ON ct.category_id = c.id AND ct.language = ?
-    LEFT JOIN categories p
-      ON p.id = c.parent_id
-    LEFT JOIN categories_translations pt
-      ON pt.category_id = p.id AND pt.language = ?
-    LEFT JOIN users u
-      ON u.id = c.created_by
-    WHERE c.deleted_at IS NULL
-    ORDER BY (c.parent_id IS NOT NULL), c.parent_id, c.order_index, c.id
-  `, [lang, lang]);
+  const rows = await db.all(
+    `SELECT c.id, c.parent_id, c.order_index,
+            ct.name AS title, ct.slug AS slug,
+            pt.name AS parent_title,
+            (SELECT COUNT(*) FROM posts_categories pc
+              JOIN posts p ON p.id = pc.post_id AND p.deleted_at IS NULL
+             WHERE pc.category_id = c.id) AS post_count
+       FROM categories c
+  LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
+  LEFT JOIN categories p ON p.id = c.parent_id
+  LEFT JOIN categories_translations pt ON pt.category_id=p.id AND pt.language=?
+      WHERE c.deleted_at IS NULL
+   ORDER BY (c.parent_id IS NOT NULL), c.parent_id, c.order_index, c.id`,
+    [lang, lang]
+  );
 
-  res.render('categories/list', {
-    pageTitle: 'Danh mục',
-    rows
+  res.render("categories/list", {
+    pageTitle: "Danh mục",
+    rows,
+    ok: req.query.ok || "",
+    err: req.query.err || "",
   });
 });
 
 /* ===== TREE VIEW ===== */
-router.get('/tree', requireAuth, async (req, res) => {
-  const db   = await getDb();
-  const lang = await getSetting('default_language', 'vi');
+router.get("/tree", requireAuth, async (req, res) => {
+  const db = await getDb();
+  const lang = await getSetting("default_language", "vi");
 
-  const flat = await db.all(`
-    SELECT
-      c.id, c.parent_id, c.order_index,
-      ct.name AS title,
-      ct.slug AS slug
-    FROM categories c
-    LEFT JOIN categories_translations ct
-      ON ct.category_id = c.id AND ct.language = ?
-    WHERE c.deleted_at IS NULL
-    ORDER BY c.parent_id, c.order_index, c.id
-  `, [lang]);
+  const flat = await db.all(
+    `SELECT c.id, c.parent_id, c.order_index, ct.name AS title, ct.slug AS slug
+       FROM categories c
+  LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
+      WHERE c.deleted_at IS NULL
+   ORDER BY c.parent_id, c.order_index, c.id`,
+    [lang]
+  );
 
   const byId = new Map();
-  flat.forEach(r => byId.set(r.id, { id: r.id, title: r.title, slug: r.slug, children: [] }));
+  flat.forEach(r => byId.set(r.id, { id:r.id, title:r.title, slug:r.slug, children:[] }));
   const roots = [];
-  flat.forEach(r => {
-    const node = byId.get(r.id);
-    if (r.parent_id && byId.has(r.parent_id)) byId.get(r.parent_id).children.push(node);
-    else roots.push(node);
-  });
+  flat.forEach(r => { const node = byId.get(r.id); if (r.parent_id && byId.has(r.parent_id)) byId.get(r.parent_id).children.push(node); else roots.push(node); });
 
-  res.render('categories/tree', {
-    pageTitle: 'Danh mục (Tree)',
-    tree: roots,
-    lang
-  });
+  res.render("categories/tree", { pageTitle: "Danh mục (Tree)", tree: roots, lang });
 });
 
 /* ===== NEW (form) ===== */
-router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
+router.get("/new", requireRoles("admin","editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
 
   const parents = await db.all(
-    `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+    `SELECT c.id, COALESCE(t.name,'(Không tên)') AS name
        FROM categories c
-  LEFT JOIN categories_translations t
-         ON t.category_id = c.id AND t.language = ?
+  LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
       WHERE c.deleted_at IS NULL
-   ORDER BY name`,
-    [lang]
+   ORDER BY name`, [lang]
   );
 
   const seoDefaults = await getSeoDefaults();
   const seo = {
-    title: "",
-    meta_description: "",
-    focus_keyword: "",
+    title: "", meta_description: "", focus_keyword: "",
     robots_index: seoDefaults.seo_default_index || "index",
     robots_follow: seoDefaults.seo_default_follow || "follow",
-    robots_advanced: "",
-    canonical_url: "",
+    robots_advanced: "", canonical_url: "",
     schema_type: seoDefaults.seo_schema_default_type || "",
     schema_jsonld: seoDefaults.seo_schema_default_jsonld || "",
-    og_title: "",
-    og_description: "",
-    og_image_url: "",
-    twitter_title: "",
-    twitter_description: "",
-    twitter_image_url: "",
+    og_title: "", og_description: "", og_image_url: "",
+    twitter_title: "", twitter_description: "", twitter_image_url: "",
   };
 
   return res.render("categories/edit", {
@@ -122,14 +88,14 @@ router.get("/new", requireRoles("admin", "editor"), async (req, res) => {
     item: null,
     parents,
     error: null,
-    csrfToken: (res.locals.csrfToken || ""),
+    csrfToken: res.locals.csrfToken || "",
     seo,
-    seoDefaults
+    seoDefaults,
   });
 });
 
 /* ===== NEW (submit) ===== */
-router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
+router.post("/new", requireRoles("admin","editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
 
@@ -144,29 +110,23 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
     if (finalOrder === null) {
       const next = await db.get(
         `SELECT COALESCE(MAX(order_index), -1) + 1 AS next
-         FROM categories
-         WHERE (parent_id IS ? OR (parent_id IS NULL AND ? IS NULL))
-           AND deleted_at IS NULL`,
-        [parentId, parentId]
+           FROM categories
+          WHERE (parent_id <=> ?)
+            AND deleted_at IS NULL`, [parentId]
       );
       finalOrder = next?.next ?? 0;
     }
 
-    await db.run(
-      `INSERT INTO categories(parent_id, order_index, created_by, updated_by)
-       VALUES(?,?,?,?)`,
-      [parentId, finalOrder, req.user.id, req.user.id]
-    );
-    const { id } = await db.get(`SELECT last_insert_rowid() AS id`);
+    await db.run(`INSERT INTO categories(parent_id, order_index) VALUES(?,?)`, [parentId, finalOrder]);
+    const { id } = await db.get(`SELECT LAST_INSERT_ID() AS id`);
 
-    const theSlug = (slug && slug.trim()) ? toSlug(slug) : toSlug(theName);
+    const theSlug = slug && slug.trim() ? toSlug(slug) : toSlug(theName);
     await db.run(
       `INSERT INTO categories_translations(category_id, language, name, slug, content_html)
        VALUES(?,?,?,?,?)`,
       [id, lang, theName, theSlug, content_html || ""]
     );
 
-    // --- SAVE SEO ---
     const seoPayload = {
       title: req.body.seo_title || "",
       meta_description: req.body.seo_description || "",
@@ -185,20 +145,17 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       twitter_image_url: req.body.seo_twitter_image_url || "",
     };
     await saveSeo("category", id, lang, seoPayload);
-    // ---------------
 
-    return res.redirect("/admin/categories");
+    return res.redirect("/admin/categories?ok=created");
   } catch (e) {
     const parents = await getDb().then(async (db2) => {
       const lg = await getSetting("default_language", "vi");
       return db2.all(
-        `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+        `SELECT c.id, COALESCE(t.name,'(Không tên)') AS name
            FROM categories c
-      LEFT JOIN categories_translations t
-             ON t.category_id = c.id AND t.language = ?
+      LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
           WHERE c.deleted_at IS NULL
-       ORDER BY name`,
-        [lg]
+       ORDER BY name`, [lg]
       );
     });
 
@@ -208,7 +165,7 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
       item: null,
       parents,
       error: e.message,
-      csrfToken: (res.locals.csrfToken || ""),
+      csrfToken: res.locals.csrfToken || "",
       seo: {
         title: req.body.seo_title || "",
         meta_description: req.body.seo_description || "",
@@ -226,36 +183,31 @@ router.post("/new", requireRoles("admin", "editor"), async (req, res) => {
         twitter_description: req.body.seo_twitter_description || "",
         twitter_image_url: req.body.seo_twitter_image_url || "",
       },
-      seoDefaults
+      seoDefaults,
     });
   }
 });
 
 /* ===== EDIT (form) ===== */
-router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
+router.get("/:id/edit", requireRoles("admin","editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
   const id = Number(req.params.id);
 
   const item = await db.get(
-    `SELECT c.id, c.parent_id, c.order_index, c.created_at, c.updated_at,
-            t.name, t.slug, t.content_html
+    `SELECT c.id, c.parent_id, c.order_index, t.name, t.slug, t.content_html
        FROM categories c
-  LEFT JOIN categories_translations t
-         ON t.category_id = c.id AND t.language = ?
-      WHERE c.id = ? AND c.deleted_at IS NULL`,
-    [lang, id]
+  LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
+      WHERE c.id=? AND c.deleted_at IS NULL`, [lang, id]
   );
   if (!item) return res.status(404).send("Không tìm thấy danh mục");
 
   const parents = await db.all(
-    `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+    `SELECT c.id, COALESCE(t.name,'(Không tên)') AS name
        FROM categories c
-  LEFT JOIN categories_translations t
-         ON t.category_id = c.id AND t.language = ?
-      WHERE c.deleted_at IS NULL AND c.id != ?
-   ORDER BY name`,
-    [lang, id]
+  LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
+      WHERE c.deleted_at IS NULL AND c.id <> ?
+   ORDER BY name`, [lang, id]
   );
 
   const seo = await getSeo("category", id, lang);
@@ -263,17 +215,15 @@ router.get("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
 
   return res.render("categories/edit", {
     pageTitle: "Sửa danh mục",
-    item,
-    parents,
+    item, parents,
     error: null,
-    csrfToken: (res.locals.csrfToken || ""),
-    seo,
-    seoDefaults
+    csrfToken: res.locals.csrfToken || "",
+    seo, seoDefaults,
   });
 });
 
 /* ===== EDIT (submit) ===== */
-router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
+router.post("/:id/edit", requireRoles("admin","editor"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
   const id = Number(req.params.id);
@@ -292,27 +242,25 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       while (stack.length) {
         const cur = stack.pop();
         if (cur === id) throw new Error("Không thể đặt danh mục cha là chính nó/hoặc con cháu của nó.");
-        const kids = await db.all(`SELECT id FROM categories WHERE parent_id = ? AND deleted_at IS NULL`, [cur]);
+        const kids = await db.all(`SELECT id FROM categories WHERE parent_id=? AND deleted_at IS NULL`, [cur]);
         kids.forEach(k => stack.push(k.id));
       }
     }
 
     await db.run(
       `UPDATE categories
-          SET parent_id = ?, order_index = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-      [parentId, finalOrder, req.user.id, id]
+          SET parent_id=?, order_index=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?`, [parentId, finalOrder, id]
     );
 
-    const theSlug = (slug && slug.trim()) ? toSlug(slug) : toSlug(theName);
+    const theSlug = slug && slug.trim() ? toSlug(slug) : toSlug(theName);
     const exists = await db.get(
-      `SELECT 1 FROM categories_translations WHERE category_id = ? AND language = ?`,
-      [id, lang]
+      `SELECT 1 FROM categories_translations WHERE category_id=? AND language=?`, [id, lang]
     );
 
     if (exists) {
       await db.run(
-        `UPDATE categories_translations SET name = ?, slug = ?, content_html=? WHERE category_id = ? AND language = ?`,
+        `UPDATE categories_translations SET name=?, slug=?, content_html=? WHERE category_id=? AND language=?`,
         [theName, theSlug, content_html || "", id, lang]
       );
     } else {
@@ -323,7 +271,6 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       );
     }
 
-    // --- SAVE SEO ---
     const seoPayload = {
       title: req.body.seo_title || "",
       meta_description: req.body.seo_description || "",
@@ -342,31 +289,25 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
       twitter_image_url: req.body.seo_twitter_image_url || "",
     };
     await saveSeo("category", id, lang, seoPayload);
-    // ---------------
 
-    return res.redirect("/admin/categories");
+    return res.redirect("/admin/categories?ok=updated");
   } catch (e) {
     const parents = await getDb().then(async (db2) => {
       return db2.all(
-        `SELECT c.id, COALESCE(t.name, '(Không tên)') AS name
+        `SELECT c.id, COALESCE(t.name,'(Không tên)') AS name
            FROM categories c
-      LEFT JOIN categories_translations t
-             ON t.category_id = c.id AND t.language = ?
-          WHERE c.deleted_at IS NULL AND c.id != ?
-       ORDER BY name`,
-        [await getSetting("default_language", "vi"), id]
+      LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
+          WHERE c.deleted_at IS NULL AND c.id <> ?
+       ORDER BY name`, [await getSetting("default_language","vi"), id]
       );
     });
 
     const item = await getDb().then(async (db2) => {
       return db2.get(
-        `SELECT c.id, c.parent_id, c.order_index, c.created_at, c.updated_at,
-                t.name, t.slug, t.content_html
+        `SELECT c.id, c.parent_id, c.order_index, t.name, t.slug, t.content_html
            FROM categories c
-      LEFT JOIN categories_translations t
-             ON t.category_id = c.id AND t.language = ?
-          WHERE c.id = ?`,
-        [lang, id]
+      LEFT JOIN categories_translations t ON t.category_id=c.id AND t.language=?
+          WHERE c.id = ?`, [lang, id]
       );
     });
 
@@ -375,18 +316,16 @@ router.post("/:id/edit", requireRoles("admin", "editor"), async (req, res) => {
 
     return res.render("categories/edit", {
       pageTitle: "Sửa danh mục",
-      item,
-      parents,
+      item, parents,
       error: e.message,
-      csrfToken: (res.locals.csrfToken || ""),
-      seo,
-      seoDefaults
+      csrfToken: res.locals.csrfToken || "",
+      seo, seoDefaults,
     });
   }
 });
 
 /* ===== REORDER ===== */
-router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
+router.post("/reorder", requireRoles("admin","editor"), async (req, res) => {
   const db = await getDb();
   const { node_id, new_parent_id, new_index } = req.body;
   const nodeId = Number(node_id);
@@ -394,57 +333,42 @@ router.post("/reorder", requireRoles("admin", "editor"), async (req, res) => {
   const targetIndex = Number(new_index || 0);
 
   try {
-    await db.run("BEGIN IMMEDIATE");
+    await db.exec("START TRANSACTION");
 
-    if (parentId) {
+    if (parentId != null) {
       const stack = [parentId];
       while (stack.length) {
         const cur = stack.pop();
-        if (cur === nodeId) {
-          throw new Error("Không thể đặt danh mục cha là chính nó/hoặc con cháu của nó.");
-        }
-        const kids = await db.all(
-          `SELECT id FROM categories WHERE parent_id = ? AND deleted_at IS NULL`,
-          [cur]
-        );
+        if (cur === nodeId) throw new Error("Không thể đặt danh mục cha là chính nó/hoặc con cháu của nó.");
+        const kids = await db.all(`SELECT id FROM categories WHERE parent_id=? AND deleted_at IS NULL`, [cur]);
         kids.forEach(k => stack.push(k.id));
       }
     }
 
-    await db.run(
-      `UPDATE categories SET parent_id = ? WHERE id = ?`,
-      [parentId, nodeId]
-    );
+    await db.run(`UPDATE categories SET parent_id=? WHERE id=?`, [parentId, nodeId]);
 
     const siblings = await db.all(
-      `SELECT id
-         FROM categories
-        WHERE (parent_id IS ? OR (parent_id IS NULL AND ? IS NULL))
-          AND deleted_at IS NULL
-        ORDER BY COALESCE(order_index,0), id`,
-      [parentId, parentId]
+      `SELECT id FROM categories WHERE (parent_id <=> ?) AND deleted_at IS NULL AND id <> ?
+         ORDER BY COALESCE(order_index,0), id`, [parentId, nodeId]
     );
 
-    const arranged = [];
-    const filtered = siblings.map(s => s.id).filter(id => id !== nodeId);
-    for (let i = 0; i <= filtered.length; i++) {
-      if (i === targetIndex) arranged.push(nodeId);
-      if (i < filtered.length) arranged.push(filtered[i]);
+    const arr = siblings.map(s => s.id);
+    const idx = Math.max(0, Math.min(targetIndex, arr.length));
+    arr.splice(idx, 0, nodeId);
+
+    for (let i=0;i<arr.length;i++) {
+      await db.run(`UPDATE categories SET order_index=? WHERE id=?`, [i, arr[i]]);
     }
 
-    for (let i = 0; i < arranged.length; i++) {
-      await db.run(`UPDATE categories SET order_index = ? WHERE id = ?`, [i, arranged[i]]);
-    }
-
-    await db.run("COMMIT");
+    await db.exec("COMMIT");
     res.json({ ok: true });
   } catch (e) {
-    await db.run("ROLLBACK");
+    try { await db.exec("ROLLBACK"); } catch {}
     res.status(409).json({ ok: false, error: e.message });
   }
 });
 
-// === Lấy dữ liệu xác nhận xoá (danh sách bài, danh mục đích) ===
+/* === Confirm Trash + Reassign & Trash === */
 router.get("/:id/confirm-trash", requireRoles("admin"), async (req, res) => {
   const db = await getDb();
   const lang = await getSetting("default_language", "vi");
@@ -454,27 +378,24 @@ router.get("/:id/confirm-trash", requireRoles("admin"), async (req, res) => {
     `SELECT c.id, ct.name AS name
        FROM categories c
   LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
-      WHERE c.id=? AND c.deleted_at IS NULL`,
-    [lang, id]
+      WHERE c.id=? AND c.deleted_at IS NULL`, [lang, id]
   );
-  if (!cat) return res.status(404).json({ ok: false, error: "Không tìm thấy danh mục" });
+  if (!cat) return res.status(404).json({ ok:false, error:"Không tìm thấy danh mục" });
 
   const countRow = await db.get(
     `SELECT COUNT(*) AS n
        FROM posts_categories pc
-       JOIN posts p ON p.id = pc.post_id AND p.deleted_at IS NULL
-      WHERE pc.category_id = ?`,
-    [id]
+       JOIN posts p ON p.id=pc.post_id AND p.deleted_at IS NULL
+      WHERE pc.category_id=?`, [id]
   );
 
   const posts = await db.all(
-    `SELECT p.id, COALESCE(t.title, '(Không tên)') AS title
+    `SELECT p.id, COALESCE(t.title,'(Không tên)') AS title
        FROM posts p
   LEFT JOIN posts_translations t ON t.post_id=p.id AND t.language=?
        JOIN posts_categories pc ON pc.post_id=p.id
       WHERE pc.category_id=? AND p.deleted_at IS NULL
-      ORDER BY p.id DESC LIMIT 200`,
-    [lang, id]
+   ORDER BY p.id DESC LIMIT 200`, [lang, id]
   );
 
   const others = await db.all(
@@ -482,8 +403,7 @@ router.get("/:id/confirm-trash", requireRoles("admin"), async (req, res) => {
        FROM categories c
   LEFT JOIN categories_translations ct ON ct.category_id=c.id AND ct.language=?
       WHERE c.deleted_at IS NULL AND c.id <> ?
-      ORDER BY name`,
-    [lang, id]
+   ORDER BY name`, [lang, id]
   );
 
   return res.json({
@@ -496,71 +416,41 @@ router.get("/:id/confirm-trash", requireRoles("admin"), async (req, res) => {
   });
 });
 
-// === Chuyển bài rồi đưa danh mục vào thùng rác ===
 router.post("/:id/reassign-and-trash", requireRoles("admin"), async (req, res) => {
   const db = await getDb();
   const oldId = Number(req.params.id);
   const newId = Number(req.body.new_category_id || 0);
   const forcePrimary = String(req.body.force_primary || "") === "1";
 
-  if (!newId) {
-    return res.status(400).json({ ok: false, error: "Vui lòng chọn danh mục đích" });
-  }
-  if (newId === oldId) {
-    return res.status(400).json({ ok: false, error: "Danh mục đích không được trùng danh mục xoá" });
-  }
+  if (!newId) return res.status(400).json({ ok:false, error:"Vui lòng chọn danh mục đích" });
+  if (newId === oldId) return res.status(400).json({ ok:false, error:"Danh mục đích không được trùng danh mục xoá" });
 
   try {
-    await db.run("BEGIN IMMEDIATE");
+    await db.exec("START TRANSACTION");
 
-    // Lấy toàn bộ liên kết post -> old category
-    const links = await db.all(
-      `SELECT post_id, is_primary FROM posts_categories WHERE category_id=?`,
-      [oldId]
-    );
+    const links = await db.all(`SELECT post_id, is_primary FROM posts_categories WHERE category_id=?`, [oldId]);
 
     for (const row of links) {
       const pid = row.post_id;
 
-      // Nếu chưa có link tới newId => thêm
-      const exists = await db.get(
-        `SELECT 1 FROM posts_categories WHERE post_id=? AND category_id=?`,
-        [pid, newId]
-      );
-      if (!exists) {
-        await db.run(
-          `INSERT INTO posts_categories(post_id, category_id, is_primary) VALUES (?,?,0)`,
-          [pid, newId]
-        );
-      }
+      const exists = await db.get(`SELECT 1 FROM posts_categories WHERE post_id=? AND category_id=?`, [pid, newId]);
+      if (!exists) await db.run(`INSERT INTO posts_categories(post_id, category_id, is_primary) VALUES (?,?,0)`, [pid, newId]);
 
-      // Nếu old là primary và user chọn ép primary => chuyển primary sang newId
       if (row.is_primary === 1 && forcePrimary) {
         await db.run(`UPDATE posts_categories SET is_primary=0 WHERE post_id=?`, [pid]);
-        await db.run(
-          `UPDATE posts_categories SET is_primary=1 WHERE post_id=? AND category_id=?`,
-          [pid, newId]
-        );
+        await db.run(`UPDATE posts_categories SET is_primary=1 WHERE post_id=? AND category_id=?`, [pid, newId]);
       }
 
-      // Xoá link cũ
-      await db.run(
-        `DELETE FROM posts_categories WHERE post_id=? AND category_id=?`,
-        [pid, oldId]
-      );
+      await db.run(`DELETE FROM posts_categories WHERE post_id=? AND category_id=?`, [pid, oldId]);
     }
 
-    // Đưa danh mục vào thùng rác
-    await db.run(
-      `UPDATE categories SET deleted_at=CURRENT_TIMESTAMP WHERE id=?`,
-      [oldId]
-    );
+    await db.run(`UPDATE categories SET deleted_at=CURRENT_TIMESTAMP WHERE id=?`, [oldId]);
 
-    await db.run("COMMIT");
-    return res.json({ ok: true });
+    await db.exec("COMMIT");
+    return res.json({ ok: true, message: "Đã chuyển Danh mục vào Thùng rác." });
   } catch (e) {
-    try { await db.run("ROLLBACK"); } catch {}
-    return res.status(409).json({ ok: false, error: e.message || String(e) });
+    try { await db.exec("ROLLBACK"); } catch {}
+    return res.status(409).json({ ok:false, error: e.message || String(e) });
   }
 });
 

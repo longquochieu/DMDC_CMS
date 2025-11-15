@@ -1,10 +1,17 @@
 <!-- server/views/partials/sidebar.ejs -->
+<%
+  const path = (typeof currentPath !== 'undefined') ? currentPath : '';
+  const q    = (typeof currentQuery !== 'undefined') ? currentQuery : {};
+  const me   = (typeof user !== 'undefined' && user) ? user : ((typeof res !== 'undefined' && res.locals) ? res.locals.user : null);
+  const isAdmin = !!(me && me.role === 'admin');
+%>
+
 <nav class="sidebar border-end">
   <ul class="nav flex-column py-3">
 
     <!-- Tổng quan -->
     <li class="nav-item">
-      <a class="nav-link <%= (req.path === '/admin') ? 'active fw-bold' : '' %>" href="/admin">
+      <a class="nav-link <%= (path === '/admin') ? 'active fw-bold' : '' %>" href="/admin">
         <i class="fas fa-gauge"></i> Tổng quan
       </a>
     </li>
@@ -14,22 +21,25 @@
       <div class="text-uppercase small text-muted px-3">Trang</div>
       <ul class="nav flex-column ms-3">
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/pages') && !req.path.includes('/new') && !req.path.includes('/tree') ? 'active fw-bold' : '' %>" href="/admin/pages">
+          <a class="nav-link <%= (path.startsWith('/admin/pages') && path !== '/admin/pages/new' && !path.includes('/tree')) ? 'active fw-bold' : '' %>" href="/admin/pages">
             Danh sách trang
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= (req.path === '/admin/pages/new') ? 'active fw-bold' : '' %>" href="/admin/pages/new">
+          <a class="nav-link <%= (path === '/admin/pages/new') ? 'active fw-bold' : '' %>" href="/admin/pages/new">
             Tạo mới trang
           </a>
         </li>
+        <!-- Ẩn menu Cây trang (kéo-thả) theo yêu cầu, giữ route/chức năng -->
+        <!--
         <li class="nav-item">
-          <a class="nav-link <%= (req.path.startsWith('/admin/pages/tree')) ? 'active fw-bold' : '' %>" href="/admin/pages/tree">
+          <a class="nav-link <%= (path.startsWith('/admin/pages/tree')) ? 'active fw-bold' : '' %>" href="/admin/pages/tree">
             Cây trang (kéo-thả)
           </a>
         </li>
+        -->
         <li class="nav-item">
-          <a class="nav-link <%= (req.path.startsWith('/admin/trash') && (req.query?.tab === 'pages')) ? 'active fw-bold' : '' %>" href="/admin/trash?tab=pages">
+          <a class="nav-link <%= (path.startsWith('/admin/trash') && q.tab === 'pages') ? 'active fw-bold' : '' %>" href="/admin/trash?tab=pages">
             Trang đã xoá
           </a>
         </li>
@@ -41,32 +51,32 @@
       <div class="text-uppercase small text-muted px-3">Bài viết</div>
       <ul class="nav flex-column ms-3">
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/categories') ? 'active fw-bold' : '' %>" href="/admin/categories">
+          <a class="nav-link <%= path.startsWith('/admin/categories') ? 'active fw-bold' : '' %>" href="/admin/categories">
             Danh mục bài viết
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= (req.path.startsWith('/admin/posts') && !req.path.endsWith('/new')) ? 'active fw-bold' : '' %>" href="/admin/posts">
+          <a class="nav-link <%= (path.startsWith('/admin/posts') && path !== '/admin/posts/new') ? 'active fw-bold' : '' %>" href="/admin/posts">
             Danh sách bài viết
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= (req.path === '/admin/posts/new') ? 'active fw-bold' : '' %>" href="/admin/posts/new">
+          <a class="nav-link <%= (path === '/admin/posts/new') ? 'active fw-bold' : '' %>" href="/admin/posts/new">
             Tạo mới bài viết
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= (req.path.startsWith('/admin/posts') && req.query?.status === 'scheduled') ? 'active fw-bold' : '' %>" href="/admin/posts?status=scheduled">
+          <a class="nav-link <%= (path.startsWith('/admin/posts') && q.status === 'scheduled') ? 'active fw-bold' : '' %>" href="/admin/posts?status=scheduled">
             Bài viết đã lên lịch
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/tags') ? 'active fw-bold' : '' %>" href="/admin/tags">
+          <a class="nav-link <%= path.startsWith('/admin/tags') ? 'active fw-bold' : '' %>" href="/admin/tags">
             Thẻ (Tag)
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= (req.path.startsWith('/admin/trash') && (req.query?.tab === 'posts')) ? 'active fw-bold' : '' %>" href="/admin/trash?tab=posts">
+          <a class="nav-link <%= (path.startsWith('/admin/trash') && q.tab === 'posts') ? 'active fw-bold' : '' %>" href="/admin/trash?tab=posts">
             Bài viết đã xoá
           </a>
         </li>
@@ -78,36 +88,84 @@
       <div class="text-uppercase small text-muted px-3">Media</div>
       <ul class="nav flex-column ms-3">
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/media') ? 'active fw-bold' : '' %>" href="/admin/media">
+          <a class="nav-link <%= path.startsWith('/admin/media') ? 'active fw-bold' : '' %>" href="/admin/media">
             Thư viện Media
           </a>
         </li>
       </ul>
     </li>
 
+    <!-- Users (chỉ admin) -->
+    <% if (isAdmin) { %>
+    <li class="nav-item mt-3">
+      <div class="text-uppercase small text-muted px-3">Tài khoản</div>
+      <ul class="nav flex-column ms-3">
+        <li class="nav-item">
+          <a class="nav-link <%= path.startsWith('/admin/users') && path !== '/admin/users/new' ? 'active fw-bold' : '' %>" href="/admin/users">
+            Danh sách tài khoản
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= (path === '/admin/users/new') ? 'active fw-bold' : '' %>" href="/admin/users/new">
+            Tạo tài khoản mới
+          </a>
+        </li>
+      </ul>
+    </li>
+    <% } %>
+
+   <!-- Tài khoản -->
+	<li class="nav-item mt-3">
+	  <div class="text-uppercase small text-muted px-3">Tài khoản</div>
+	  <ul class="nav flex-column ms-3">
+		<li class="nav-item">
+		  <a class="nav-link <%= (path.startsWith('/admin/profile')) ? 'active fw-bold' : '' %>"
+			 href="/admin/profile">
+			Tài khoản của tôi
+		  </a>
+		</li>
+
+		<% if (isAdmin) { %>
+		<li class="nav-item">
+		  <a class="nav-link <%= (path.startsWith('/admin/users') && path !== '/admin/users/new') ? 'active fw-bold' : '' %>"
+			 href="/admin/users">
+			Danh sách tài khoản
+		  </a>
+		</li>
+		<li class="nav-item">
+		  <a class="nav-link <%= (path === '/admin/users/new') ? 'active fw-bold' : '' %>"
+			 href="/admin/users/new">
+			Tạo tài khoản mới
+		  </a>
+		</li>
+		<% } %>
+	  </ul>
+	</li>
+
+
     <!-- Cài đặt -->
     <li class="nav-item mt-3">
       <div class="text-uppercase small text-muted px-3">Cài đặt</div>
       <ul class="nav flex-column ms-3">
         <li class="nav-item">
-          <a class="nav-link <%= (req.path === '/admin/settings') ? 'active fw-bold' : '' %>" href="/admin/settings">
+          <a class="nav-link <%= (path === '/admin/settings') ? 'active fw-bold' : '' %>" href="/admin/settings">
             Cài đặt chung
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/settings/seo') ? 'active fw-bold' : '' %>" href="/admin/settings/seo">
+          <a class="nav-link <%= path.startsWith('/admin/settings/seo') ? 'active fw-bold' : '' %>" href="/admin/settings/seo">
             Cài đặt SEO
           </a>
         </li>
       </ul>
     </li>
 
-    <!-- Nhật ký -->
+    <!-- Hệ thống -->
     <li class="nav-item mt-3">
       <div class="text-uppercase small text-muted px-3">Hệ thống</div>
       <ul class="nav flex-column ms-3">
         <li class="nav-item">
-          <a class="nav-link <%= req.path.startsWith('/admin/logs') ? 'active fw-bold' : '' %>" href="/admin/logs">
+          <a class="nav-link <%= path.startsWith('/admin/logs') ? 'active fw-bold' : '' %>" href="/admin/logs">
             Nhật ký (Logs)
           </a>
         </li>

@@ -1,0 +1,115 @@
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
+    <a href="/admin/users" class="btn btn-secondary btn-sm">Quay lại</a>
+  </div>
+
+  <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+  <form method="post" action="<%= (mode==='create') ? '/admin/users/new' : ('/admin/users/' + item.id + '/edit') %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="row">
+      <div class="col-md-8">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Thông tin cơ bản</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Username</label>
+                <input class="form-control" name="username" value="<%= item?.username || '' %>" <%= mode==='edit'?'readonly':'' %> required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input class="form-control" name="email" value="<%= item?.email || '' %>" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Display name</label>
+                <input class="form-control" name="display_name" value="<%= item?.display_name || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Avatar URL</label>
+                <input class="form-control" name="avatar_url" value="<%= item?.avatar_url || '' %>">
+              </div>
+              <% if (mode==='create') { %>
+              <div class="col-md-6">
+                <label class="form-label">Mật khẩu</label>
+                <input class="form-control" type="password" name="password" placeholder="Tối thiểu 6 ký tự">
+              </div>
+              <% } %>
+              <div class="col-md-3">
+                <label class="form-label">Vai trò</label>
+                <select class="form-select" name="role">
+                  <% ['admin','editor','author','contributor'].forEach(r => { %>
+                    <option value="<%= r %>" <%= (item?.role===r)?'selected':'' %>><%= r %></option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Trạng thái</label>
+                <select class="form-select" name="status">
+                  <% ['active','inactive'].forEach(s => { %>
+                    <option value="<%= s %>" <%= (item?.status===s)?'selected':'' %>><%= s %></option>
+                  <% }) %>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header"><strong>Tuỳ chọn</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">Locale</label><input class="form-control" name="locale" value="<%= item?.locale||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Timezone</label><input class="form-control" name="timezone" value="<%= item?.timezone||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Items / page</label><input type="number" class="form-control" name="items_per_page" value="<%= item?.items_per_page||'' %>"></div>
+
+              <div class="col-md-4"><label class="form-label">Date format</label><input class="form-control" name="date_format" value="<%= item?.date_format||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Time format</label><input class="form-control" name="time_format" value="<%= item?.time_format||'' %>"></div>
+              <div class="col-md-4"><label class="form-label">Editor mode</label><input class="form-control" name="editor_mode" value="<%= item?.editor_mode||'' %>"></div>
+
+              <div class="col-md-4"><label class="form-label">Theme</label><input class="form-control" name="theme" value="<%= item?.theme||'' %>"></div>
+              <div class="col-md-4 form-check mt-4 ms-3">
+                <input class="form-check-input" type="checkbox" id="sidebar_collapsed" name="sidebar_collapsed" <%= item?.sidebar_collapsed? 'checked':'' %>>
+                <label class="form-check-label" for="sidebar_collapsed">Thu gọn sidebar</label>
+              </div>
+              <div class="col-md-4 d-flex align-items-center gap-4">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="notify_inapp" name="notify_inapp" <%= item?.notify_inapp?'checked':'' %>>
+                  <label class="form-check-label" for="notify_inapp">Thông báo trong app</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="notify_email" name="notify_email" <%= item?.notify_email?'checked':'' %>>
+                  <label class="form-check-label" for="notify_email">Thông báo email</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-end mb-5">
+          <button class="btn btn-primary">Lưu</button>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <% if (mode==='edit') { %>
+          <div class="card mb-3">
+            <div class="card-header"><strong>Bảo mật</strong></div>
+            <div class="card-body">
+              <form method="post" action="/admin/users/<%= item.id %>/reset-password" onsubmit="return confirm('Đặt lại mật khẩu ngay?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <div class="mb-2">
+                  <label class="form-label">Mật khẩu mới</label>
+                  <input class="form-control" name="new_password" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <button class="btn btn-warning w-100">Đặt lại mật khẩu</button>
+              </form>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </form>
+</div>

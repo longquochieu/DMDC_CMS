@@ -7,6 +7,7 @@ export const csrfProtection = csurf({
   ignoreMethods: ['GET','HEAD','OPTIONS'],
 });
 
+
 // Đưa token vào view + để AJAX lấy qua <meta>
 export function attachCsrfToken(req, res, next) {
   if (typeof req.csrfToken === 'function') {

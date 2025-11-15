@@ -1,21 +1,95 @@
-﻿<section class="content">
-  <%- include('../partials/flash') %>
-
-  <div class="card">
-    <div class="card-body">
-      <h3 class="mb-3">Media</h3>
-
-      <form action="/admin/media/upload" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="form-group">
-          <label>Chọn tệp</label>
-          <input type="file" name="file" multiple class="form-control">
+﻿<script src="/js/media-ui.js"></script>
+<!-- server/views/media/index.ejs -->
+<div class="row" id="media-page" data-csrf="<%= csrfToken %>">
+  <!-- LEFT: Folder tree + actions -->
+  <div class="col-lg-3">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Thư mục</strong>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary" id="btn-new-folder">Thêm</button>
+          <button class="btn btn-outline-secondary" id="btn-rename-folder">Đổi tên</button>
+          <button class="btn btn-outline-danger" id="btn-del-folder">Xoá</button>
         </div>
-        <button class="btn btn-primary">Upload</button>
-      </form>
-
-      <hr>
-      <div id="media-list"></div>
+      </div>
+      <div class="card-body">
+        <ul id="folder-tree" class="list-unstyled small">
+          <!-- render bằng JS -->
+        </ul>
+        <div class="text-muted small">Kéo-thả để di chuyển/sắp xếp</div>
+      </div>
     </div>
   </div>
-</section>
+
+  <!-- RIGHT: Toolbar + Grid -->
+  <div class="col-lg-9">
+    <div class="card mb-3">
+      <div class="card-body d-flex align-items-end gap-2 flex-wrap">
+        <div>
+          <label class="form-label mb-0">Từ khoá</label>
+          <input type="text" class="form-control form-control-sm" id="q" placeholder="Tên file">
+        </div>
+        <div>
+          <label class="form-label mb-0">Loại</label>
+          <select id="type" class="form-select form-select-sm">
+            <option value="">Tất cả</option>
+            <option value="image">Ảnh</option>
+            <option value="video">Video</option>
+            <option value="doc">Tài liệu (PDF)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label mb-0">Sắp xếp</label>
+          <select id="sort" class="form-select form-select-sm">
+            <option value="created_at">Ngày tạo</option>
+            <option value="filename">Tên file</option>
+            <option value="size_bytes">Dung lượng</option>
+            <option value="mime_type">MIME</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label mb-0">Chiều</label>
+          <select id="dir" class="form-select form-select-sm">
+            <option value="desc">Giảm dần</option>
+            <option value="asc">Tăng dần</option>
+          </select>
+        </div>
+        <div class="ms-auto">
+          <label class="form-label mb-0">Upload</label>
+          <input type="file" id="file" class="form-control form-control-sm">
+        </div>
+        <div>
+          <button class="btn btn-primary btn-sm" id="btn-upload">Tải lên</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <button class="btn btn-outline-secondary btn-sm" id="bulk-assign">Gán vào thư mục</button>
+            <button class="btn btn-outline-secondary btn-sm" id="bulk-unassign">Bỏ khỏi thư mục</button>
+            <button class="btn btn-outline-warning btn-sm" id="bulk-trash">Đưa vào thùng rác</button>
+          </div>
+          <div class="text-muted">
+            <span id="list-meta"></span>
+          </div>
+        </div>
+
+        <div id="media-grid" class="row g-3">
+          <!-- cards by JS -->
+        </div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <button class="btn btn-outline-secondary btn-sm" id="prev">« Trước</button>
+          <div id="page-info" class="small text-muted"></div>
+          <button class="btn btn-outline-secondary btn-sm" id="next">Sau »</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- page-only script -->
+<script src="/js/media.js" defer></script>

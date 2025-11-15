@@ -1,0 +1,24 @@
+<table class="table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Tên</th>
+      <th>Loại</th>
+      <th>Dung lượng</th>
+      <th>Ngày</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (!rows || !rows.length) { %>
+      <tr><td colspan="4" class="text-center text-muted">Không có tài liệu</td></tr>
+    <% } else { %>
+      <% rows.forEach(r => { %>
+        <tr>
+          <td><a href="<%= r.url %>" target="_blank" rel="noopener"><%= r.filename %></a></td>
+          <td><%= r.mime || '' %></td>
+          <td><%= r.size || '' %></td>
+          <td><%= r.created_at || '' %></td>
+        </tr>
+      <% }) %>
+    <% } %>
+  </tbody>
+</table>

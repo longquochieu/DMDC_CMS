@@ -36,7 +36,8 @@
       <div class="card mb-3">
         <div class="card-header"><strong>Nội dung</strong></div>
         <div class="card-body">
-          <div data-quill-editor style="min-height:300px"></div>
+          <!-- Chỉ một editor duy nhất -->
+          <div id="page-editor" style="min-height:300px"></div>
           <textarea name="content_html" id="content_html" class="d-none"><%- item ? (item.content_html || '') : '' %></textarea>
           <div class="mt-2">
             <button type="button" class="btn btn-sm btn-outline-primary" data-insert-media>Chèn ảnh vào nội dung</button>
@@ -44,9 +45,9 @@
         </div>
       </div>
 
-      <!-- SEO (placeholder) -->
-	 <%- include('../partials/seo-tabs', { seo, seoDefaults, titleInputSelector: '#title', quillVar: 'quill' }) %>
-    
+      <!-- SEO -->
+      <%- include('../partials/seo-tabs', { seo, seoDefaults, titleInputSelector: '#title', quillVar: 'quill' }) %>
+
       <!-- Nút Lưu / Huỷ -->
       <div class="d-flex gap-2 mb-4">
         <button class="btn btn-primary">Lưu</button>
@@ -111,8 +112,92 @@
   </div>
 </div>
 
-<!-- scripts -->
+<!-- Scripts: chỉ include MỘT lần Quill & slug; bỏ page-editor.js để tránh khởi tạo 2 lần -->
 <script src="/js/slug.js"></script>
 <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
 <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css">
-<script src="/js/page-editor.js"></script>
+
+<script>
+  // Bảo đảm không khởi tạo Quill trùng
+  function initSingleQuill(containerSel) {
+    const el = document.querySelector(containerSel);
+    if (!el) return null;
+    if (el.__quill) return el.__quill; // đã có
+
+    const q = new Quill(el, {
+      theme: "snow",
+      modules: {
+        toolbar: [
+          [{ header: [false, 2, 3, 4] }],
+          ["bold", "italic", "underline", "strike"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          [{ align: [] }],
+          ["blockquote", "code-block"],
+          ["link", "image", "video"],
+          ["clean"],
+        ],
+      },
+      placeholder: "",
+    });
+
+    // đồng bộ textarea
+    const ta = document.getElementById("content_html");
+    if (ta) {
+      // nếu textarea có dữ liệu sẵn -> đổ vào editor lần đầu
+      if (ta.value && !q.root.innerHTML.trim()) {
+        q.root.innerHTML = ta.value;
+      }
+      q.on("text-change", () => { ta.value = q.root.innerHTML; });
+    }
+
+    el.__quill = q;
+    return q;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Auto-slug
+    if (window.autoBindSlug) {
+      window.autoBindSlug('#title', '#slug');
+    } else {
+      // fallback cho nút "Tạo từ tiêu đề"
+      document.getElementById('btn-genslug')?.addEventListener('click', () => {
+        if (window.toSlug) {
+          const t = document.getElementById('title')?.value || '';
+          document.getElementById('slug').value = window.toSlug(t);
+        }
+      });
+    }
+
+    // Khởi tạo đúng 1 Quill
+    window.quill = initSingleQuill('#page-editor');
+
+    // Nút chèn ảnh vào nội dung
+    document.querySelector('[data-insert-media]')?.addEventListener('click', async () => {
+      if (!window.quill) return;
+      if (window.pickMedia) {
+        const picks = await window.pickMedia({ multi: false, type: 'image' });
+        if (picks && picks.length) {
+          const url = picks[0].url;
+          const range = window.quill.getSelection(true) || { index: window.quill.getLength(), length: 0 };
+          window.quill.insertEmbed(range.index, 'image', url, 'user');
+          window.quill.setSelection(range.index + 1, 0);
+        }
+      } else {
+        const url = prompt('Dán URL ảnh:');
+        if (url) {
+          const range = window.quill.getSelection(true) || { index: window.quill.getLength(), length: 0 };
+          window.quill.insertEmbed(range.index, 'image', url, 'user');
+          window.quill.setSelection(range.index + 1, 0);
+        }
+      }
+    });
+
+    // Nút “Tạo từ tiêu đề” (nếu user bấm thủ công)
+    document.getElementById('btn-genslug')?.addEventListener('click', () => {
+      if (window.toSlug) {
+        const t = document.getElementById('title')?.value || '';
+        document.getElementById('slug').value = window.toSlug(t);
+      }
+    });
+  });
+</script>

@@ -1,0 +1,71 @@
+<!-- server/views/partials/media_picker_modal.ejs -->
+<div class="modal fade" id="mediaPicker" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Chọn Media</h5>
+        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- tái dùng UI list nhỏ gọn -->
+        <div class="d-flex gap-2 align-items-end flex-wrap mb-2">
+          <input type="text" id="mp-q" class="form-control form-control-sm" placeholder="Tìm ...">
+          <select id="mp-type" class="form-select form-select-sm" style="max-width:180px">
+            <option value="">Tất cả</option><option value="image">Ảnh</option><option value="video">Video</option><option value="doc">PDF</option>
+          </select>
+          <button class="btn btn-outline-secondary btn-sm" id="mp-refresh">Lọc</button>
+        </div>
+        <div id="mp-grid" class="row g-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-dismiss="modal">Đóng</button>
+        <button class="btn btn-primary" id="mp-choose">Chọn</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const grid = document.getElementById('mp-grid');
+  let selected = null, list = [];
+
+  async function load() {
+    const q = document.getElementById('mp-q').value;
+    const type = document.getElementById('mp-type').value;
+    const res = await fetch('/admin/media/list?q='+encodeURIComponent(q)+'&type='+encodeURIComponent(type), { credentials:'same-origin' });
+    const data = await res.json();
+    list = data.rows || [];
+    render();
+  }
+  function render(){
+    grid.innerHTML = '';
+    selected = null;
+    list.forEach((r) => {
+      const isImg = (r.mime_type||'').startsWith('image/');
+      const thumb = isImg ? r.url.replace('/uploads/','/uploads/_thumbs/').replace(/\.[a-z0-9]+$/i,'.jpg') : '/assets/file-icon.png';
+      const card = document.createElement('div'); card.className='col-md-2 col-4';
+      card.innerHTML = `
+        <div class="card h-100 mp-item" data-id="${r.id}" data-url="${r.url}">
+          <img src="${thumb}" class="card-img-top" loading="lazy">
+          <div class="card-body p-1 small text-truncate" title="${r.filename}">${r.filename}</div>
+        </div>`;
+      card.querySelector('.mp-item').onclick = (e) => {
+        grid.querySelectorAll('.mp-item').forEach(x => x.classList.remove('border','border-primary'));
+        e.currentTarget.classList.add('border','border-primary');
+        selected = { id: r.id, url: r.url, filename: r.filename, mime_type: r.mime_type };
+      };
+      grid.appendChild(card);
+    });
+  }
+  document.getElementById('mp-refresh').onclick = load;
+  document.getElementById('mp-choose').onclick = () => {
+    if (!selected) return alert('Chưa chọn media');
+    const ev = new CustomEvent('media-picked', { detail: selected });
+    window.dispatchEvent(ev);
+    $('#mediaPicker').modal('hide');
+  };
+  // preload when open
+  $('#mediaPicker').on('shown.bs.modal', load);
+})();
+</script>

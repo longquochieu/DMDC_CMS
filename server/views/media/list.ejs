@@ -1,32 +1,79 @@
-<% include('../partials/flash') %>
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title">Media Library</h3>
-    <form class="form-inline" method="post" action="/admin/media/upload" enctype="multipart/form-data">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <input type="file" name="file" class="form-control mr-2" required>
-      <button class="btn btn-primary btn-sm">Upload</button>
-    </form>
+<!-- server/views/media/index.ejs -->
+<div class="row">
+  <div class="col-md-3">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Thư mục</strong>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" id="btnNewFolder">+ Thư mục</button>
+        </div>
+      </div>
+      <div class="card-body p-2">
+        <div id="folderTree" class="folder-tree">
+          <!-- render bằng JS -->
+        </div>
+        <div class="mt-2 small text-muted">
+          • <em>Tất cả</em> = mọi file<br/>
+          • <em>Chưa phân loại</em> = file chưa gán vào thư mục
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="card-body">
-    <div class="row">
-      <% rows.forEach(m => { %>
-      <div class="col-md-3 mb-3">
-        <div class="card">
-          <% if (m.mime_type.startsWith('image/')) { %>
-            <img src="<%= m.url %>" class="card-img-top" alt="<%= m.filename %>">
-          <% } %>
-          <div class="card-body p-2">
-            <div class="small"><strong><%= m.original_filename %></strong></div>
-            <div class="text-muted"><%= m.mime_type %> — <%= m.size_bytes %> bytes</div>
-            <form method="post" action="/admin/media/<%= m.id %>/delete" onsubmit="return confirm('Xoá media này?');">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button class="btn btn-danger btn-xs mt-2">Xoá</button>
-            </form>
+
+  <div class="col-md-9">
+    <div class="card mb-3">
+      <div class="card-header">
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+          <div>
+            <label class="form-label mb-0">Tìm</label>
+            <input id="q" class="form-control form-control-sm" placeholder="Từ khoá tên file/URL">
+          </div>
+          <div>
+            <label class="form-label mb-0">Loại</label>
+            <select id="type" class="form-select form-select-sm">
+              <option value="all">Tất cả</option>
+              <option value="image">Ảnh</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+              <option value="doc">Tài liệu</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label mb-0">Sắp xếp</label>
+            <select id="sort" class="form-select form-select-sm">
+              <option value="created_at">Ngày tạo</option>
+              <option value="filename">Tên file</option>
+              <option value="size">Dung lượng</option>
+              <option value="mime">MIME</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label mb-0">Chiều</label>
+            <select id="dir" class="form-select form-select-sm">
+              <option value="desc">Giảm dần</option>
+              <option value="asc">Tăng dần</option>
+            </select>
+          </div>
+          <div class="ms-auto">
+            <button id="btnRefresh" class="btn btn-sm btn-outline-secondary">Làm mới</button>
           </div>
         </div>
       </div>
-      <% }) %>
+      <div class="card-body">
+        <div id="mediaGrid" class="row g-3">
+          <!-- render bằng JS -->
+        </div>
+        <div id="mediaPager" class="d-flex justify-content-between align-items-center mt-3">
+          <!-- render bằng JS -->
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+<script src="/js/media-folders.js"></script>
+<script>
+  window.MEDIA_FOLDERS_BOOT = {
+    csrf: "<%= csrfToken %>"
+  };
+</script>

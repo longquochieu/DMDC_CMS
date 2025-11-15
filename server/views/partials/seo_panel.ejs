@@ -91,14 +91,20 @@
 
         <div class="col-md-4">
           <label class="form-label">Schema Type</label>
-          <select class="form-select" name="seo[schema_type]">
-            <option value=""></option>
-            <option <%= (seo?.schema_type==='Article'?'selected':'') %> >Article</option>
-            <option <%= (seo?.schema_type==='NewsArticle'?'selected':'') %> >NewsArticle</option>
-            <option <%= (seo?.schema_type==='BlogPosting'?'selected':'') %> >BlogPosting</option>
-            <option <%= (seo?.schema_type==='FAQPage'?'selected':'') %> >FAQPage</option>
-            <option <%= (seo?.schema_type==='Product'?'selected':'') %> >Product</option>
-          </select>
+			<select name="seo_schema_type" class="form-control">
+				<% const _schemaTypes = [
+				  "Article","Product","Local Business","Event","Recipe",
+				  "FAQ","Organization","Person","Breadcrumb","Job Posting",
+				  "Course","Service"
+				]; %>
+				<% const cur = (seo && seo.schema_type) || (seoDefaults && seoDefaults.schema_type) || ""; %>
+				<% _schemaTypes.forEach(t => { %>
+				  <option value="<%= t %>" <%= cur===t ? 'selected' : '' %>><%= t %></option>
+				<% }) %>
+			</select>
+			<small class="form-text text-muted">
+				Chọn loại Schema theo chuẩn Google/Schema.org. Nếu nhập JSON-LD tùy chỉnh bên dưới, hệ thống sẽ ưu tiên JSON-LD đó.
+			</small>
         </div>
         <div class="col-12">
           <label class="form-label">Schema JSON-LD (tuỳ chỉnh)</label>

@@ -1,92 +1,198 @@
 // server/services/activity.js
-import { getDb } from '../utils/db.js';
-// server/services/activity.js (chèn thêm các hàm dưới vào cuối file)
+import { getDb } from "../utils/db.js";
 import { getSetting, setSetting } from "./settings.js";
 
-export async function ensureActivitySchema() {
-  const db = await getDb();
+/**
+ * Ghi log hoạt động
+ * @param {number|null} actorId   id user (có thể null nếu chưa đăng nhập)
+ * @param {string} action         'login'|'create'|'update'|'trash'|'restore'|'destroy'|...
+ * @param {string} entity         'post'|'page'|'category'|'tag'|'media'|'user'|...
+ * @param {number} entityId       id của entity
+ * @param {object|null} meta      object -> lưu JSON vào meta_json
+ * @param {object|null} req       request (để lấy IP & User-Agent nếu cần)
+ */
+export async function logActivity(
+  actorId,
+  action,
+  entity,
+  entityId,
+  meta = null,
+  req = null
+) {
+  try {
+    const db = await getDb();
+    const ip = req?.ip || null;
+    const ua =
+      (req?.headers?.["user-agent"] ? String(req.headers["user-agent"]) : "")
+        .slice(0, 1024) || null;
+    const metaJson = meta ? JSON.stringify(meta) : null;
 
-  // Tạo bảng nếu chưa có
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS activity_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,                -- người thực hiện (có thể NULL)
-      action TEXT NOT NULL,           -- create | update | trash | restore | ...
-      entity_type TEXT NOT NULL,      -- 'page' | 'post' | 'category' | ...
-      entity_id INTEGER NOT NULL,
-      meta TEXT,                      -- JSON (tùy chọn)
-      ip TEXT,
-      user_agent TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Đảm bảo cột user_id tồn tại (phòng khi bảng cũ chưa có)
-  const cols = await db.all(`PRAGMA table_info(activity_logs)`);
-  const hasUserId = cols.some(c => c.name === 'user_id');
-  if (!hasUserId) {
-    await db.run(`ALTER TABLE activity_logs ADD COLUMN user_id INTEGER`);
+    // Lược đồ chuẩn: activity_logs(user_id, action, entity, entity_id, meta_json, ip, user_agent, created_at)
+    await db.run(
+      `INSERT INTO activity_logs
+         (user_id, action, entity, entity_id, meta_json, ip, user_agent, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        actorId ?? null,
+        String(action || ""),
+        String(entity || ""),
+        entityId ?? null,
+        metaJson,
+        ip,
+        ua,
+      ]
+    );
+  } catch {
+    // Không để lỗi log làm hỏng luồng chính
   }
 }
 
-export async function logActivity(userId, action, entityType, entityId, meta = null, req = null) {
+/** Cập nhật "last_activity" cho user (gọi trong middleware nếu muốn) */
+export async function touchActivity(userId) {
+  if (!userId) return;
   const db = await getDb();
-  await ensureActivitySchema();
-
-  const ip = (req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || null);
-  const ua = (req?.headers?.['user-agent'] || null);
-
   await db.run(
-    `INSERT INTO activity_logs (user_id, action, entity_type, entity_id, meta, ip, user_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      userId ?? null,
-      action,
-      entityType,
-      entityId,
-      meta ? JSON.stringify(meta) : null,
-      ip,
-      ua
-    ]
+    `UPDATE users SET last_activity = CURRENT_TIMESTAMP WHERE id = ?`,
+    [userId]
   );
 }
 
-// Giữ retention_days trong settings (mặc định 90)
+/** Lấy số ngày lưu log (mặc định 90 ngày) — key: activity.retention.days */
 export async function getRetentionDays() {
-  return parseInt((await getSetting("activity_logs.retention_days", "90")) || "90", 10);
+  const raw = await getSetting("activity.retention.days", "90");
+  const n = parseInt(String(raw), 10);
+  return Number.isFinite(n) && n > 0 ? n : 90;
 }
+
+/** Đặt số ngày lưu log */
 export async function setRetentionDays(days) {
-  await setSetting("activity_logs.retention_days", String(days));
+  const n = parseInt(String(days), 10);
+  const keep = Number.isFinite(n) && n > 0 ? n : 90;
+  await setSetting("activity.retention.days", String(keep));
+  return getRetentionDays();
 }
 
-export async function purgeActivityLogs(days) {
+/**
+ * Dọn log cũ hơn X ngày (mặc định lấy từ getRetentionDays)
+ * @returns {number} affectedRows
+ */
+export async function purgeActivityLogs(days = null) {
   const db = await getDb();
-  const n = parseInt(days || await getRetentionDays(), 10);
-  await db.run(`DELETE FROM activity_logs WHERE created_at < datetime('now', ?)`, [`-${n} days`]);
-  return true;
+  const keep = days ?? (await getRetentionDays());
+  const n = Number.isFinite(Number(keep)) ? Math.max(1, parseInt(keep, 10)) : 90;
+
+  // Lưu ý: dùng nội suy số nguyên an toàn cho INTERVAL để tránh lỗi bind
+  const sql = `
+    DELETE FROM activity_logs
+    WHERE created_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ${n} DAY)
+  `;
+  const r = await db.run(sql, []);
+  return r?.affectedRows ?? r?.changes ?? 0;
 }
 
-export async function exportActivityCsv(where, params) {
+/**
+ * Xuất CSV log hoạt động theo bộ lọc
+ * opts: { from, to, action, entity, limit }
+ * - from/to: 'YYYY-MM-DD' hoặc 'YYYY-MM-DD HH:MM:SS'
+ */
+export async function exportActivityCsv(opts = {}) {
   const db = await getDb();
-  const rows = await db.all(`
-    SELECT al.id, al.created_at, al.user_id, u.username, al.action,
-           al.entity_type, al.entity_id, al.ip, al.user_agent, al.extra_json
+  const {
+    from = null,
+    to = null,
+    action = null,
+    entity = null,
+    limit = 10000,
+  } = opts;
+
+  const where = [];
+  const params = [];
+
+  if (entity) {
+    where.push(`al.entity = ?`);
+    params.push(entity);
+  }
+  if (action) {
+    where.push(`al.action = ?`);
+    params.push(action);
+  }
+  if (from) {
+    where.push(`al.created_at >= ?`);
+    params.push(from);
+  }
+  if (to) {
+    where.push(`al.created_at <= ?`);
+    params.push(to);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  // Alias user_id -> actor_id để tương thích với view/CSV cũ
+  const sql = `
+    SELECT
+      al.id,
+      al.created_at,
+      al.action,
+      al.entity,
+      al.entity_id,
+      al.user_id AS actor_id,
+      u.username,
+      al.ip,
+      al.user_agent,
+      al.meta_json
     FROM activity_logs al
     LEFT JOIN users u ON u.id = al.user_id
-    WHERE ${where}
-    ORDER BY al.created_at DESC
-  `, params);
+    ${whereSql}
+    ORDER BY al.id DESC
+    LIMIT ?
+  `;
+  params.push(Number(limit) || 10000);
 
+  const rows = await db.all(sql, params);
+
+  // simple CSV
   const header = [
-    "id","created_at","user_id","username","action","entity_type","entity_id","ip","user_agent","extra_json"
+    "id",
+    "created_at",
+    "action",
+    "entity",
+    "entity_id",
+    "actor_id",
+    "username",
+    "ip",
+    "user_agent",
+    "meta_json",
   ];
+
+  const esc = (v) => {
+    if (v == null) return "";
+    const s = String(v);
+    const needs = /[",\n]/.test(s);
+    const out = s.replace(/"/g, '""');
+    return needs ? `"${out}"` : out;
+    };
+
   const lines = [header.join(",")];
-  for (const r of rows) {
-    const esc = v => `"${String(v??"").replace(/"/g,'""')}"`;
-    lines.push([
-      r.id, r.created_at, r.user_id, r.username, r.action,
-      r.entity_type, r.entity_id, r.ip||"", r.user_agent||"", r.extra_json||""
-    ].map(esc).join(","));
+  for (const r of rows || []) {
+    lines.push(
+      [
+        esc(r.id),
+        esc(r.created_at),
+        esc(r.action),
+        esc(r.entity),
+        esc(r.entity_id),
+        esc(r.actor_id),
+        esc(r.username),
+        esc(r.ip),
+        esc(r.user_agent),
+        esc(r.meta_json),
+      ].join(",")
+    );
   }
-  return lines.join("\r\n");
+
+  return {
+    filename: `activity_${new Date().toISOString().slice(0, 10)}.csv`,
+    mime: "text/csv; charset=utf-8",
+    content: lines.join("\n"),
+  };
 }

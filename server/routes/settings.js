@@ -9,7 +9,16 @@ router.get('/', requireRoles('admin','editor'), async (req, res) => {
   const db = await getDb();
   const s = await getAllSettings();
   const lang = await getSetting('default_language','vi');
-  const pages = await db.all('SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL ORDER BY t.title', lang);
+  const pages = await db.all(
+  `SELECT p.id, t.title
+   FROM pages p
+   JOIN pages_translations t ON t.page_id = p.id
+   WHERE p.deleted_at IS NULL
+     AND t.language = ?
+   ORDER BY t.title`,
+  lang
+);
+
   res.render('settings/index', { pageTitle:'Settings', s, pages, success:null, error:null });
 });
 
@@ -25,13 +34,31 @@ router.post('/', requireRoles('admin','editor'), async (req, res) => {
     const s = await getAllSettings();
     const db = await getDb();
     const lang = await getSetting('default_language','vi');
-    const pages = await db.all('SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL ORDER BY t.title', lang);
+    const pages = await db.all(
+	  `SELECT p.id, t.title
+	   FROM pages p
+	   JOIN pages_translations t ON t.page_id = p.id
+	   WHERE p.deleted_at IS NULL
+		 AND t.language = ?
+	   ORDER BY t.title`,
+	  lang
+	);
+
     res.render('settings/index', { pageTitle:'Settings', s, pages, success:'Đã lưu cài đặt.', error:null });
   }catch(e){
     const s = await getAllSettings();
     const db = await getDb();
     const lang = await getSetting('default_language','vi');
-    const pages = await db.all('SELECT p.id, t.title FROM pages p LEFT JOIN pages_translations t ON t.page_id=p.id AND t.language=? WHERE p.deleted_at IS NULL ORDER BY t.title', lang);
+    const pages = await db.all(
+	  `SELECT p.id, t.title
+	   FROM pages p
+	   JOIN pages_translations t ON t.page_id = p.id
+	   WHERE p.deleted_at IS NULL
+		 AND t.language = ?
+	   ORDER BY t.title`,
+	  lang
+	);
+
     res.render('settings/index', { pageTitle:'Settings', s, pages, success:null, error:e.message });
   }
 });

@@ -26,8 +26,6 @@ async function run(){
     await db.run('UPDATE users SET password_hash=? WHERE id=?', hash, exists.id);
     console.log('Admin password reset for:', username);
   }
-  fs.mkdirSync('./logs', { recursive: true });
-  fs.writeFileSync('./logs/admin_password.txt', pass);
   console.log('Temporary admin password:', pass);
   await db.close();
 }

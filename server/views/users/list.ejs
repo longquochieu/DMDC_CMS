@@ -1,71 +1,70 @@
-<%- include('../partials/flash') %>
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title">Users</h3>
-    <a href="/admin/users/new" class="btn btn-primary btn-sm">+ New User</a>
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0"><%= pageTitle %></h1>
+    <a href="/admin/users/new" class="btn btn-primary btn-sm">Tạo người dùng</a>
   </div>
-  <div class="card-body">
-    <form class="form-inline mb-3" method="get">
-	<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <input class="form-control mr-2" type="text" name="q" placeholder="Search username/email..." value="<%= q||'' %>">
-      <select class="form-control mr-2" name="role">
-        <option value="">All roles</option>
+
+  <% if (ok) { %><div class="alert alert-success">OK: <%= ok %></div><% } %>
+  <% if (err) { %><div class="alert alert-danger">Lỗi: <%= err %></div><% } %>
+
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-4"><input class="form-control" name="q" placeholder="Tìm tên/email" value="<%= q||'' %>"></div>
+    <div class="col-md-3">
+      <select class="form-select" name="role">
+        <option value="">-- Vai trò --</option>
         <% ['admin','editor','author','contributor'].forEach(r => { %>
           <option value="<%= r %>" <%= role===r?'selected':'' %>><%= r %></option>
         <% }) %>
       </select>
-      <select class="form-control mr-2" name="status">
-        <option value="">All status</option>
-        <% ['active','disabled'].forEach(s => { %>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" name="status">
+        <option value="">-- Trạng thái --</option>
+        <% ['active','inactive'].forEach(s => { %>
           <option value="<%= s %>" <%= status===s?'selected':'' %>><%= s %></option>
         <% }) %>
       </select>
-      <button class="btn btn-secondary">Filter</button>
-    </form>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Lọc</button></div>
+  </form>
+
+  <div class="card">
     <div class="table-responsive">
-      <table class="table table-striped">
-        <thead>
+      <table class="table table-striped align-middle mb-0">
+        <thead class="table-light">
           <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Online</th>
-            <th>Last activity</th>
-            <th>Actions</th>
+            <th>ID</th><th>Người dùng</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Last login</th><th style="width:160px;">Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          <% rows.forEach(u => { %>
+          <% if (!rows || !rows.length) { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Không có dữ liệu</td></tr>
+          <% } else { rows.forEach(u => { %>
             <tr>
-              <td><%= u.username %></td>
-              <td><%= u.email %></td>
-              <td><%= u.role %></td>
-              <td><%= u.status %></td>
-              <td><span class="badge <%= (u.last_activity_recent?'badge-success':'badge-secondary') %>"><%= u.last_activity_recent?'Online':'Offline' %></span></td>
-              <td><%= u.last_activity || '-' %></td>
+              <td><code><%= u.id %></code></td>
               <td>
-                <a class="btn btn-sm btn-outline-primary" href="/admin/users/<%= u.id %>/edit">Edit</a>
-                <% if (user && user.id !== u.id) { %>
-                  <% if (u.status !== 'disabled') { %>
-                    <form class="d-inline" method="post" action="/admin/users/<%= u.id %>/disable">
-						<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-						<button class="btn btn-sm btn-outline-warning">Disable</button>
-					</form>
-                  <% } else { %>
-                    <form class="d-inline" method="post" action="/admin/users/<%= u.id %>/enable">
-						<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-						<button class="btn btn-sm btn-outline-success">Enable</button>
-					</form>
-                  <% } %>
-                  <form class="d-inline" method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Delete this user?');">
-					<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button class="btn btn-sm btn-outline-danger">Delete</button>
-                  </form>
-                <% } %>
+                <div class="d-flex align-items-center gap-2">
+                  <% if (u.avatar_url) { %><img src="<%= u.avatar_url %>" width="28" height="28" class="rounded-circle"/><% } %>
+                  <div>
+                    <div><strong><%= u.display_name || u.username %></strong></div>
+                    <small class="text-muted">@<%= u.username %></small>
+                  </div>
+                </div>
+              </td>
+              <td><%= u.email %></td>
+              <td><span class="badge bg-secondary text-uppercase"><%= u.role %></span></td>
+              <td><span class="badge <%= u.status==='active'?'bg-success':'bg-danger' %>"><%= u.status %></span></td>
+              <td><%= u.last_login || '—' %></td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-primary" href="/admin/users/<%= u.id %>/edit">Sửa</a>
+                <form method="post" action="/admin/users/<%= u.id %>/reset-password" class="d-inline">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="new_password" value="changeme123">
+                  <button class="btn btn-sm btn-outline-warning" onclick="return confirm('Đặt lại mật khẩu user này?')">Reset PW</button>
+                </form>
               </td>
             </tr>
-          <% }) %>
+          <% }) } %>
         </tbody>
       </table>
     </div>
